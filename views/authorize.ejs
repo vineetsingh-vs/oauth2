@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consent to Authorize</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="auth-container">
+    <h1>Authorize Application</h1>
+    <p>Do you want to grant access to this application?</p>
+
+    <form action="/authorize" method="POST" class="authorization-form">
+      <input type="hidden" name="client_id" value="<%= client_id %>">
+      <input type="hidden" name="redirect_uri" value="<%= redirect_uri %>">
+      <input type="hidden" name="state" value="<%= state %>">
+      
+      <div class="authorization-buttons">
+        <button type="submit" name="decision" value="approve">Approve</button>
+        <button type="submit" name="decision" value="deny">Deny</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

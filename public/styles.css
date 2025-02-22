@@ -1,0 +1,168 @@
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Bitter', serif;
+    background-image: url('Fall-in-Mountain-Maryland_Allegany-County-MD.jpg'); /* Image URL */
+    color: #333;
+    background-size: cover; /* Ensures the image covers the entire page */
+    background-position: center center; /* Centers the image */
+    background-repeat: no-repeat;
+    height: 100vh; /* Ensures the body takes the full height of the viewport */
+    display: flex; /* Using flexbox to center the content */
+    justify-content: center; /* Centers content horizontally */
+    align-items: center; /* Centers content vertically */
+}
+
+h1 {
+    font-family: 'Bitter', serif;
+    color: #D50032; /* UMD Red for headings */
+    text-align: center;
+    color: #D50032; /* UMD Red */
+    font-size: 2.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.login-container {
+    display: flex;
+    flex-direction: column; /* Stack elements vertically */
+    justify-content: center; /* Horizontal center */
+    align-items: center;     /* Vertical center */
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px; /* Keeps the form from stretching too wide */
+    text-align: center;
+}
+
+.login-form div {
+    margin-bottom: 15px;
+    width: 100%; /* Ensures each form element takes the full width */
+}
+
+label {
+    display: block;
+    font-size: 1.1rem;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+input {
+    width: 100%; /* Ensure input fields take full width */
+    padding: 10px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f8f8f8;
+    color: #333;
+}
+
+input:focus {
+    border-color: #D50032; /* UMD Red */
+    outline: none;
+    background-color: #fff;
+}
+
+button {
+    background-color: #F5A623; /* UMD Yellow */
+    color: #fff;
+    padding: 12px 20px;
+    font-size: 1.1rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 100%;
+    font-family: 'Bitter', serif;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #D50032; /* UMD Red */
+}
+
+.footer-links {
+    margin-top: 20px;
+}
+
+.footer-links a {
+    color: #D50032; /* UMD Red */
+    text-decoration: none;
+    font-size: 1rem;
+    transition: color 0.3s ease;
+}
+
+.footer-links a:hover {
+    color: #F5A623; /* UMD Yellow */
+}
+
+.error-message {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #f44336; /* Red background for error */
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 14px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: none; /* Hidden by default */
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out; /* Smooth fade-in/fade-out */
+}
+
+.error-message.show {
+    display: block;
+    opacity: 1;
+}
+
+.auth-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.authorization-form div {
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+
+button {
+    background-color: #F5A623;
+    color: #fff;
+    padding: 12px 20px;
+    font-size: 1.1rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 45%; /* Buttons are slightly smaller to fit next to each other */
+    font-family: 'Bitter', serif;
+    margin: 10px;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #D50032;
+}
+
+.authorization-buttons {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    gap: 10px; /* Gap between the buttons */
+}
