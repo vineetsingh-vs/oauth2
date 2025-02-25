@@ -1,59 +1,85 @@
 pipeline {
-  agent any
-
-  environment {
-    // Replace with your Docker Hub repository details
-    DOCKERHUB_REPO = 'maddiemoldrem/oauth_server'
-  }
-
-  stages {
-    stage('Checkout') {
-      steps {
-        // Cloning the repository from GitHub
-        checkout scm
-      }
+    agent any
+    environment {
+        // Define your Docker Hub repository base
+        DOCKER_REPO = "maddiemoldrem/oauth_server"
+        // The docker-compose file location (if needed)
+        DOCKER_COMPOSE_FILE = "docker-compose.yml"
     }
-    stage('Verify Dockerfile') {
-      steps {
-        script {
-          // Check if the Dockerfile exists in the repository root
-          if (fileExists('Dockerfile')) {
-            echo "Dockerfile found."
-          } else {
-            error "Dockerfile not found! Failing build."
-          }
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    // Use the Git Parameter to dynamically check out the selected branch.
+                    checkout([$class: 'GitSCM',
+                              branches: [[name: params.BRANCH_BUILD]],
+                              userRemoteConfigs: [[url: 'https://github.com/vineetsingh-vs/oauth2.git']]
+                             ])
+                }
+            }
         }
-      }
-    }
-    stage('Build Docker Image') {
-      steps {
-        script {
-          // Use the GIT_COMMIT environment variable as part of the tag; fallback to 'latest'
-          def commitId = env.GIT_COMMIT ?: 'latest'
-          echo "Building Docker image with tag: ${commitId}"
-          sh "docker build -t ${DOCKERHUB_REPO}:${commitId} ."
+        stage('Build Docker Images with Docker Compose') {
+            steps {
+                script {
+                    // Build docker images using docker-compose (if needed)
+                    sh "docker-compose -f ${DOCKER_COMPOSE_FILE} build"
+                }
+            }
         }
-      }
-    }
-    stage('Push Docker Image') {
-      steps {
-        script {
-          // Login to Docker Hub using credentials stored in Jenkins environment variables
-          sh "docker login -u ${env.DOCKERHUB_USERNAME} -p ${env.DOCKERHUB_PASSWORD}"
-          def commitId = env.GIT_COMMIT ?: 'latest'
-          sh "docker push ${DOCKERHUB_REPO}:${commitId}"
+        stage('Run Tests') {
+            steps {
+                script {
+                    sh "npm install"
+                    sh "npm test"
+                }
+            }
         }
-      }
-    }
-  }
+        stage('Build and Push Docker Image') {
+            steps {
+                script {
+                    def imageTag = ""
+                    if (params.BRANCH_BUILD == "develop" || params.BRANCH_BUILD == "master") {
+                        // For develop and master, tag using just the build number.
+                        imageTag = "${DOCKER_REPO}:${env.BUILD_NUMBER}"
+                        echo "Building image for ${params.BRANCH_BUILD} branch with tag ${imageTag}"
+                        sh "docker build -t ${imageTag} ."
 
-  post {
-    always {
-      echo "Pipeline completed."
+                        // Log in and push automatically.
+                        withCredentials([usernamePassword(credentialsId: 'dockerhub',
+                                                             passwordVariable: 'DOCKERHUB_PASSWORD',
+                                                             usernameVariable: 'DOCKERHUB_USERNAME')]) {
+                            sh "echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USERNAME} --password-stdin"
+                        }
+                        sh "docker push ${imageTag}"
+                    } else {
+                        // For feature or other branches, include the branch name in the tag.
+                        imageTag = "${DOCKER_REPO}:${params.BRANCH_BUILD}-${env.BUILD_NUMBER}"
+                        echo "Building image for feature branch ${params.BRANCH_BUILD} with tag ${imageTag}"
+                        sh "docker build -t ${imageTag} ."
+
+                        // Pause for manual approval before pushing.
+                        input message: "Do you want to push the image ${imageTag} to Docker Hub?", ok: "Push"
+
+                        withCredentials([usernamePassword(credentialsId: 'dockerhub',
+                                                             passwordVariable: 'DOCKERHUB_PASSWORD',
+                                                             usernameVariable: 'DOCKERHUB_USERNAME')]) {
+                            sh "echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USERNAME} --password-stdin"
+                        }
+                        sh "docker push ${imageTag}"
+                    }
+
+                    // Record the image tag for later use if needed.
+                    env.DOCKER_IMAGE = imageTag
+                }
+            }
+        }
+        // Note: Deployment stage is commented out for now.
     }
-    failure {
-      echo "Pipeline failed! Check the logs for errors."
+    post {
+        always {
+            echo "Cleaning up build environment..."
+            // Optionally, add cleanup commands, e.g.:
+            // sh "docker system prune -f"
+        }
     }
-  }
 }
-
