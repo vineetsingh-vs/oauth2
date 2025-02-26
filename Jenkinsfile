@@ -61,10 +61,10 @@ pipeline {
                     echo "Docker build completed."
 
                         withCredentials([usernamePassword(credentialsId: 'maddie_docker',
-                                                      passwordVariable: 'DOCKERHUB_PASSWORD',
-                                                      usernameVariable: 'DOCKERHUB_USERNAME')]) {
+                                                      passwordVariable: 'DOCKER_HUB_PASS',
+                                                      usernameVariable: 'DOCKER_HUB_USER')]) {
                             echo "Logging into Docker Hub..."
-                            sh "echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USERNAME} --password-stdin"
+                            sh "echo ${DOCKER_HUB_PASS} | docker login -u ${DOCKER_HUB_USER} --password-stdin"
                             echo "Docker Hub login succeeded."
                         }
 
