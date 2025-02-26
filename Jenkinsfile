@@ -18,6 +18,21 @@ pipeline {
                 }
             }
         }
+        stage('Set Unique Tag') {
+            steps {
+                script {
+                    // Get the short commit hash from the repository
+                    def commitHash = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    // For develop/master, use a tag format with branch, build number, and commit hash
+                    if (params.BRANCH_BUILD == "develop" || params.BRANCH_BUILD == "master") {
+                        env.IMAGE_TAG = "${DOCKER_REPO}:${params.BRANCH_BUILD}-${env.BUILD_NUMBER}-${commitHash}"
+                    } else {
+                        env.IMAGE_TAG = "${DOCKER_REPO}:${params.BRANCH_BUILD}-${env.BUILD_NUMBER}-${commitHash}"
+                    }
+                    echo "Unique Docker Image Tag: ${env.IMAGE_TAG}"
+                }
+            }
+        }
         stage('Build Docker Images with Docker Compose') {
             steps {
                 script {
@@ -29,6 +44,7 @@ pipeline {
         stage('Run Tests') {
             steps {
                 script {
+                    // Install dependencies and run tests for your Node.js/Passport OAuth server.
                     sh "npm install"
                     sh "npm test"
                 }
@@ -37,43 +53,33 @@ pipeline {
         stage('Build and Push Docker Image') {
             steps {
                 script {
-                    def imageTag = ""
-                    if (params.BRANCH_BUILD == "develop" || params.BRANCH_BUILD == "master") {
-                        // For develop and master, tag using just the build number.
-                        imageTag = "${DOCKER_REPO}:${env.BUILD_NUMBER}"
-                        echo "Building image for ${params.BRANCH_BUILD} branch with tag ${imageTag}"
-                        sh "docker build -t ${imageTag} ."
+                    // Build the Docker image using the unique tag
+                    echo "Building Docker image with tag ${env.IMAGE_TAG}"
+                    sh "docker build -t ${env.IMAGE_TAG} ."
 
-                        // Log in and push automatically.
-                        withCredentials([usernamePassword(credentialsId: 'dockerhub',
-                                                             passwordVariable: 'DOCKERHUB_PASSWORD',
-                                                             usernameVariable: 'DOCKERHUB_USERNAME')]) {
-                            sh "echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USERNAME} --password-stdin"
-                        }
-                        sh "docker push ${imageTag}"
-                    } else {
-                        // For feature or other branches, include the branch name in the tag.
-                        imageTag = "${DOCKER_REPO}:${params.BRANCH_BUILD}-${env.BUILD_NUMBER}"
-                        echo "Building image for feature branch ${params.BRANCH_BUILD} with tag ${imageTag}"
-                        sh "docker build -t ${imageTag} ."
-
-                        // Pause for manual approval before pushing.
-                        input message: "Do you want to push the image ${imageTag} to Docker Hub?", ok: "Push"
-
-                        withCredentials([usernamePassword(credentialsId: 'dockerhub',
-                                                             passwordVariable: 'DOCKERHUB_PASSWORD',
-                                                             usernameVariable: 'DOCKERHUB_USERNAME')]) {
-                            sh "echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USERNAME} --password-stdin"
-                        }
-                        sh "docker push ${imageTag}"
+                    // Log in to Docker Hub using Jenkins credentials
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub',
+                                                      passwordVariable: 'DOCKERHUB_PASSWORD',
+                                                      usernameVariable: 'DOCKERHUB_USERNAME')]) {
+                        sh "echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USERNAME} --password-stdin"
                     }
 
-                    // Record the image tag for later use if needed.
-                    env.DOCKER_IMAGE = imageTag
+                    if (params.BRANCH_BUILD == "develop" || params.BRANCH_BUILD == "master") {
+                        // For develop and master, push automatically.
+                        echo "Auto-pushing image ${env.IMAGE_TAG} for ${params.BRANCH_BUILD} branch."
+                        sh "docker push ${env.IMAGE_TAG}"
+                    } else {
+                        // For feature or other branches, prompt for manual approval before pushing.
+//                         echo "Image built for feature branch: ${env.IMAGE_TAG}"
+//                         input message: "Do you want to push the image ${env.IMAGE_TAG} to Docker Hub?", ok: "Push"
+//                         sh "docker push ${env.IMAGE_TAG}"
+                        echo "Auto-pushing image ${env.IMAGE_TAG} for ${params.BRANCH_BUILD} branch."
+                        sh "docker push ${env.IMAGE_TAG}"
+                    }
                 }
             }
         }
-        // Note: Deployment stage is commented out for now.
+        // (Deployment stage can be added here later if needed)
     }
     post {
         always {
