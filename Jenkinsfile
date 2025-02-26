@@ -19,7 +19,7 @@ pipeline {
         stage('Set Unique Tag') {
             steps {
                 script {
-                    // Get the short commit hash from the repository
+                    // Get the short commit hash from the repository.
                     def commitHash = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     // Construct a unique tag using branch name, build number, and commit hash.
                     env.IMAGE_TAG = "${DOCKER_REPO}:${params.BRANCH_BUILD}-${env.BUILD_NUMBER}-${commitHash}"
@@ -47,19 +47,21 @@ pipeline {
         stage('Build and Push Docker Image') {
             steps {
                 script {
-                    // Build the Docker image using the unique tag
+                    // Build the Docker image using the unique tag.
                     echo "Building Docker image with tag ${env.IMAGE_TAG}"
                     sh "docker build -t ${env.IMAGE_TAG} ."
 
-                    // Log in to Docker Hub using Jenkins credentials
+                    // Log in to Docker Hub using Jenkins credentials.
                     withCredentials([usernamePassword(credentialsId: 'dockerhub',
                                                       passwordVariable: 'DOCKERHUB_PASSWORD',
                                                       usernameVariable: 'DOCKERHUB_USERNAME')]) {
                         sh "echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USERNAME} --password-stdin"
                     }
 
-                    // For now, auto-push for all branches.
-                    // Later, you can distinguish between develop/master and feature branches:
+                    // For now, auto-push for any branch.
+                    // Later, you can enable the below conditional block to:
+                    // - Auto-push for develop and master.
+                    // - Request manual approval for feature branches.
                     //
                     // if (params.BRANCH_BUILD == "develop" || params.BRANCH_BUILD == "master") {
                     //     echo "Auto-pushing image ${env.IMAGE_TAG} for ${params.BRANCH_BUILD} branch."
