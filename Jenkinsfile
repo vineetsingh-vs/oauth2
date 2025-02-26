@@ -8,7 +8,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    // Dynamically check out the selected branch.
+                    // Use the Git Parameter to dynamically check out the selected branch.
                     checkout([$class: 'GitSCM',
                               branches: [[name: params.BRANCH_BUILD]],
                               userRemoteConfigs: [[url: 'https://github.com/vineetsingh-vs/oauth2.git']]
@@ -69,12 +69,25 @@ pipeline {
                         echo "Docker Hub login succeeded."
                     }
 
-                    echo "Pushing Docker image ${env.IMAGE_TAG}..."
+                    // Current implementation: Auto-push for any branch.
+                    echo "Auto-pushing image ${env.IMAGE_TAG} for ${params.BRANCH_BUILD} branch."
                     sh "docker push ${env.IMAGE_TAG}"
-                    echo "Docker image pushed successfully."
+
+                    // Uncomment the block below later to differentiate between master/develop and feature branches.
+                    /*
+                    if (params.BRANCH_BUILD == "develop" || params.BRANCH_BUILD == "master") {
+                        echo "Auto-pushing image ${env.IMAGE_TAG} for ${params.BRANCH_BUILD} branch."
+                        sh "docker push ${env.IMAGE_TAG}"
+                    } else {
+                        echo "Image built for feature branch: ${env.IMAGE_TAG}"
+                        input message: "Do you want to push the image ${env.IMAGE_TAG} to Docker Hub?", ok: "Push"
+                        sh "docker push ${env.IMAGE_TAG}"
+                    }
+                    */
                 }
             }
         }
+        // (Deployment stage can be added here later if needed)
     }
     post {
         always {
