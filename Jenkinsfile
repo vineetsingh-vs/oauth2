@@ -61,13 +61,21 @@ pipeline {
                     echo "Docker build completed."
 
                     // Log in to Docker Hub using Jenkins credentials.
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub',
+//                     withCredentials([usernamePassword(credentialsId: 'dockerhub',
+//                                                       passwordVariable: 'DOCKERHUB_PASSWORD',
+//                                                       usernameVariable: 'DOCKERHUB_USERNAME')]) {
+//                         echo "Logging into Docker Hub..."
+//                         sh "echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USERNAME} --password-stdin"
+//                         echo "Docker Hub login succeeded."
+//                     }
+
+                        withCredentials([usernamePassword(credentialsId: 'maddie_docker',
                                                       passwordVariable: 'DOCKERHUB_PASSWORD',
                                                       usernameVariable: 'DOCKERHUB_USERNAME')]) {
-                        echo "Logging into Docker Hub..."
-                        sh "echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USERNAME} --password-stdin"
-                        echo "Docker Hub login succeeded."
-                    }
+                            echo "Logging into Docker Hub..."
+                            sh "echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USERNAME} --password-stdin"
+                            echo "Docker Hub login succeeded."
+                        }
 
                     // Current implementation: Auto-push for any branch.
                     echo "Auto-pushing image ${env.IMAGE_TAG} for ${params.BRANCH_BUILD} branch."
