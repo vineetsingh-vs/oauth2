@@ -6,6 +6,7 @@ WORKDIR /usr/src/app
 # Copy package files
 COPY package*.json ./
 
+#testing
 # Configure npm settings:
 #  - Set registry (optional, you may try the replicate endpoint)
 #  - Increase timeout (e.g., to 60 seconds)
