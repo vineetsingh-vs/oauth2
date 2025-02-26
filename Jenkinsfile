@@ -8,12 +8,19 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    // Use the Git Parameter to dynamically check out the selected branch.
+                    // Dynamically check out the selected branch.
                     checkout([$class: 'GitSCM',
                               branches: [[name: params.BRANCH_BUILD]],
                               userRemoteConfigs: [[url: 'https://github.com/vineetsingh-vs/oauth2.git']]
                              ])
+                    echo "Checked out branch: ${params.BRANCH_BUILD}"
                 }
+            }
+        }
+        stage('Verify Docker Installation') {
+            steps {
+                echo "Verifying Docker installation..."
+                sh 'docker --version'
             }
         }
         stage('Set Unique Tag') {
@@ -30,55 +37,44 @@ pipeline {
         stage('Build Docker Images with Docker Compose') {
             steps {
                 script {
-                    // Build docker images using docker-compose (if needed)
+                    echo "Starting docker-compose build..."
                     sh "docker-compose -f ${DOCKER_COMPOSE_FILE} build"
+                    echo "docker-compose build completed."
                 }
             }
         }
         stage('Run Tests') {
             steps {
                 script {
-                    // Install dependencies and run tests for your Node.js/Passport OAuth server.
+                    echo "Running npm install and tests..."
                     sh "npm install"
                     sh "npm test"
+                    echo "Tests completed."
                 }
             }
         }
         stage('Build and Push Docker Image') {
             steps {
                 script {
-                    // Build the Docker image using the unique tag.
                     echo "Building Docker image with tag ${env.IMAGE_TAG}"
                     sh "docker build -t ${env.IMAGE_TAG} ."
+                    echo "Docker build completed."
 
                     // Log in to Docker Hub using Jenkins credentials.
                     withCredentials([usernamePassword(credentialsId: 'dockerhub',
                                                       passwordVariable: 'DOCKERHUB_PASSWORD',
                                                       usernameVariable: 'DOCKERHUB_USERNAME')]) {
+                        echo "Logging into Docker Hub..."
                         sh "echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USERNAME} --password-stdin"
+                        echo "Docker Hub login succeeded."
                     }
 
-                    // For now, auto-push for any branch.
-                    // Later, you can enable the below conditional block to:
-                    // - Auto-push for develop and master.
-                    // - Request manual approval for feature branches.
-                    //
-                    // if (params.BRANCH_BUILD == "develop" || params.BRANCH_BUILD == "master") {
-                    //     echo "Auto-pushing image ${env.IMAGE_TAG} for ${params.BRANCH_BUILD} branch."
-                    //     sh "docker push ${env.IMAGE_TAG}"
-                    // } else {
-                    //     echo "Image built for feature branch: ${env.IMAGE_TAG}"
-                    //     input message: "Do you want to push the image ${env.IMAGE_TAG} to Docker Hub?", ok: "Push"
-                    //     sh "docker push ${env.IMAGE_TAG}"
-                    // }
-
-                    // Currently auto-push for any branch:
-                    echo "Auto-pushing image ${env.IMAGE_TAG} for ${params.BRANCH_BUILD} branch."
+                    echo "Pushing Docker image ${env.IMAGE_TAG}..."
                     sh "docker push ${env.IMAGE_TAG}"
+                    echo "Docker image pushed successfully."
                 }
             }
         }
-        // (Deployment stage can be added here later if needed)
     }
     post {
         always {
