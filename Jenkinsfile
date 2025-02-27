@@ -4,6 +4,7 @@ pipeline {
     parameters {
         // This parameter is automatically populated by the webhook,
         // but you can also override it manually.
+        string(name: 'BRANCH_BUILD', defaultValue: '', description: 'Branch to build (populated by webhook or manually)')
         // When true, forces Docker image push on manual build.
         booleanParam(name: 'FORCE_PUSH', defaultValue: false, description: 'Force push Docker image on manual build')
     }
