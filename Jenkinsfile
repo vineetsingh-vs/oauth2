@@ -127,7 +127,7 @@ pipeline {
         success {
             script {
                 def commitSha = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
-                withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                withCredentials([string(credentialsId: 'maddie-PAT', variable: 'GITHUB_TOKEN')]) {
                     sh """
                     curl -H "Authorization: token ${GITHUB_TOKEN}" \
                          -d '{"state": "success", "context": "Jenkins Build", "description": "Build succeeded"}' \
