@@ -26,10 +26,10 @@ pipeline {
         stage('Set Unique Tag') {
             steps {
                 script {
-                    // Get the short commit hash from the repository.
                     def commitHash = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    // Construct a unique tag using branch name, build number, and commit hash.
-                    env.IMAGE_TAG = "${DOCKER_REPO}:${params.BRANCH_BUILD}-${env.BUILD_NUMBER}-${commitHash}"
+                    // Sanitize the branch name: replace any "/" with "-"
+                    def sanitizedBranch = params.BRANCH_BUILD.replace('/', '-')
+                    env.IMAGE_TAG = "${DOCKER_REPO}:${sanitizedBranch}-${env.BUILD_NUMBER}-${commitHash}"
                     echo "Unique Docker Image Tag: ${env.IMAGE_TAG}"
                 }
             }
