@@ -3,7 +3,17 @@ pipeline {
 
     parameters {
 
-        gitParameter(name: 'BRANCH_BUILD', defaultValue: 'origin/master', description: 'Force push Docker image on manual build')
+           gitParameter(
+                    name: 'BRANCH_BUILD',
+                    type: 'PT_BRANCH',                 // Must specify a valid type: PT_BRANCH, PT_TAG, etc.
+                    defaultValue: 'origin/master',
+                    description: 'Select branch to build',
+                    useRepository: 'https://github.com/vineetsingh-vs/oauth2.git',
+                    branchFilter: '.*',
+                    sortMode: 'ASCENDING',
+                    selectedValue: 'TOP',
+                    quickFilterEnabled: true
+                )
         // Remove the manual BRANCH_BUILD parameter to let the webhook trigger inject it.
         booleanParam(name: 'FORCE_PUSH', defaultValue: false, description: 'Force push Docker image on manual build')
     }
@@ -18,7 +28,7 @@ pipeline {
         stage('Print Parameters') {
             steps {
                 // This should show the value injected by the webhook.
-                echo "BRANCH_BUILD: ${params.WEBHOOK_BRANCH}"
+                echo "WEBHOOK_BUILD: ${params.WEBHOOK_BRANCH}"
                 echo "FORCE_PUSH: ${params.FORCE_PUSH}"
             }
         }
