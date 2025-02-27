@@ -48,7 +48,7 @@ pipeline {
                     // Get the commit SHA for the current build.
                     def commitSha = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
                     // Update GitHub commit status to pending.
-                    withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                    withCredentials([string(credentialsId: 'maddie-PAT', variable: 'GITHUB_TOKEN')]) {
                         sh """
                         curl -H "Authorization: token ${GITHUB_TOKEN}" \
                              -d '{"state": "pending", "context": "Jenkins Build", "description": "Build started"}' \
