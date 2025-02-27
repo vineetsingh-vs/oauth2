@@ -60,7 +60,7 @@ pipeline {
                     sh "docker build -t ${env.IMAGE_TAG} ."
                     echo "Docker build completed."
 
-                        withCredentials([usernamePassword(credentialsId: 'maddie_docker',
+                        withCredentials([usernamePassword(credentialsId: '	maddie-docker',
                                                       passwordVariable: 'DOCKER_HUB_PASS',
                                                       usernameVariable: 'DOCKER_HUB_USER')]) {
                             echo "Logging into Docker Hub..."
