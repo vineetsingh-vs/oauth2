@@ -1,10 +1,12 @@
 pipeline {
     agent any
 
-//     parameters {
-//         // Remove the manual BRANCH_BUILD parameter to let the webhook trigger inject it.
-//         booleanParam(name: 'FORCE_PUSH', defaultValue: false, description: 'Force push Docker image on manual build')
-//     }
+    parameters {
+
+        gitParameter(name: 'BRANCH_BUILD', defaultValue: 'origin/master', description: 'Force push Docker image on manual build')
+        // Remove the manual BRANCH_BUILD parameter to let the webhook trigger inject it.
+        booleanParam(name: 'FORCE_PUSH', defaultValue: false, description: 'Force push Docker image on manual build')
+    }
 
     environment {
         DOCKER_REPO = "maddiemoldrem/oauth_server"
@@ -16,7 +18,7 @@ pipeline {
         stage('Print Parameters') {
             steps {
                 // This should show the value injected by the webhook.
-                echo "BRANCH_BUILD: ${params.BRANCH_BUILD}"
+                echo "BRANCH_BUILD: ${params.WEBHOOK_BRANCH}"
                 echo "FORCE_PUSH: ${params.FORCE_PUSH}"
             }
         }
@@ -24,13 +26,14 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    // Use the branch from BRANCH_BUILD; default to 'master' if not injected.
-                    def branchToCheckout = params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master'
-                    checkout([$class: 'GitSCM',
-                              branches: [[name: branchToCheckout]],
-                              userRemoteConfigs: [[url: 'https://github.com/vineetsingh-vs/oauth2.git']]
-                    ])
-                    echo "Checked out branch: ${branchToCheckout}"
+                    // If WEBHOOK_BRANCH is set, use that; otherwise fall back to BRANCH_BUILD
+                           def branchToCheckout = params.WEBHOOK_BRANCH?.trim() ? params.WEBHOOK_BRANCH
+                                                          : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
+                           checkout([$class: 'GitSCM',
+                                              branches: [[name: branchToCheckout]],
+                                              userRemoteConfigs: [[url: 'https://github.com/your/repo.git']]
+                                    ])
+                           echo "Checked out branch: ${branchToCheckout}"
                 }
             }
         }
