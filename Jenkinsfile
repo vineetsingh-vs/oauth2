@@ -3,7 +3,6 @@ pipeline {
 
     parameters {
         // Branch to build – populated by a webhook (Generic Webhook Trigger) or manually entered.
-        string(name: 'BRANCH_BUILD', defaultValue: '', description: 'Branch to build (populated by webhook or manually)')
         // When true, force the Docker push regardless of branch.
         booleanParam(name: 'FORCE_PUSH', defaultValue: false, description: 'Force push Docker image on manual build')
     }
