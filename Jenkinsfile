@@ -22,6 +22,12 @@ pipeline {
             }
         }
 
+        stage('Print Parameters') {
+            steps {
+                echo "BRANCH_BUILD: ${params.BRANCH_BUILD}"
+            }
+        }
+
         stage('Checkout') {
             steps {
                 script {
