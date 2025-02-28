@@ -40,6 +40,8 @@ pipeline {
                     // Use webhookBranch if available; otherwise fallback to the Git parameter or default to 'master'
                     def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
 
+                    echo "Checkout: ${branchToCheckout}"
+
                     // Use your actual repository URL
                     checkout([$class: 'GitSCM',
                               branches: [[name: branchToCheckout]],
