@@ -35,6 +35,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
+                        echo "WEBHOOK_BRANCH: ${params.WEBHOOK_BRANCH}"
                     // If WEBHOOK_BRANCH is set, use that; otherwise fall back to BRANCH_BUILD
                            def branchToCheckout = params.WEBHOOK_BRANCH?.trim() ? params.WEBHOOK_BRANCH
                                                           : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
