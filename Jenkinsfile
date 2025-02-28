@@ -1,58 +1,107 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    // Replace with your Docker Hub repository details
-    DOCKERHUB_REPO = 'maddiemoldrem/oauth_server'
-  }
+    parameters {
+        // Git Parameter for manual selection (if needed)
+//         gitParameter(
+//             name: 'BRANCH_BUILD',
+//             type: 'PT_BRANCH', // Use PT_BRANCH to list branches
+//             defaultValue: 'origin/master',
+//             description: 'Select branch to build',
+//             useRepository: 'https://github.com/vineetsingh-vs/oauth2.git',
+//             branchFilter: '.*',
+//             sortMode: 'ASCENDING',
+//             quickFilterEnabled: true
+//         )
+        booleanParam(name: 'FORCE_PUSH', defaultValue: false, description: 'Force push Docker image on manual build')
+    }
 
-  stages {
-    stage('Checkout') {
-      steps {
-        // Cloning the repository from GitHub
-        checkout scm
-      }
+    environment {
+        DOCKER_REPO = "maddiemoldrem/oauth_server"
+        DOCKER_COMPOSE_FILE = "docker-compose.yml"
+        GITHUB_REPO = "vineetsingh-vs/oauth2"
     }
-    stage('Verify Dockerfile') {
-      steps {
-        script {
-          // Check if the Dockerfile exists in the repository root
-          if (fileExists('Dockerfile')) {
-            echo "Dockerfile found."
-          } else {
-            error "Dockerfile not found! Failing build."
-          }
-        }
-      }
-    }
-    stage('Build Docker Image') {
-      steps {
-        script {
-          // Use the GIT_COMMIT environment variable as part of the tag; fallback to 'latest'
-          def commitId = env.GIT_COMMIT ?: 'latest'
-          echo "Building Docker image with tag: ${commitId}"
-          sh "docker build -t ${DOCKERHUB_REPO}:${commitId} ."
-        }
-      }
-    }
-    stage('Push Docker Image') {
-      steps {
-        script {
-          // Login to Docker Hub using credentials stored in Jenkins environment variables
-          sh "docker login -u ${env.DOCKERHUB_USERNAME} -p ${env.DOCKERHUB_PASSWORD}"
-          def commitId = env.GIT_COMMIT ?: 'latest'
-          sh "docker push ${DOCKERHUB_REPO}:${commitId}"
-        }
-      }
-    }
-  }
 
-  post {
-    always {
-      echo "Pipeline completed."
+    stages {
+        stage('Print Parameters') {
+            steps {
+
+                echo "WEBHOOK_BRANCH: ${env.WEBHOOK_BRANCH}"
+                echo "BRANCH_BUILD: ${params.BRANCH_BUILD}"
+                echo "FORCE_PUSH: ${params.FORCE_PUSH}"
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                script {
+                    // If WEBHOOK_BRANCH is set, remove the 'refs/heads/' prefix.
+                    def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
+                    // Use webhookBranch if available; otherwise fallback to the Git parameter or default to 'master'
+                    def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
+
+                    echo "Checkout: ${branchToCheckout}"
+
+                    // Use your actual repository URL
+                    checkout([$class: 'GitSCM',
+                              branches: [[name: branchToCheckout]],
+                              userRemoteConfigs: [[url: 'https://github.com/vineetsingh-vs/oauth2.git']]
+                    ])
+                    echo "Checked out branch: ${branchToCheckout}"
+                }
+            }
+        }
+
+        stage('Set Unique Tag') {
+            steps {
+                script {
+                    def commitHash = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    // Use the same branch logic for the tag
+                    def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
+                    def branchUsed = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
+                    def sanitizedBranch = branchUsed.replace('/', '-')
+                    env.IMAGE_TAG = "${DOCKER_REPO}:${sanitizedBranch}-${env.BUILD_NUMBER}-${commitHash}"
+                    echo "Unique Docker Image Tag: ${env.IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Build and (Conditionally) Push Docker Image') {
+            steps {
+                script {
+                    echo "Building Docker image with tag ${env.IMAGE_TAG}"
+                    sh "docker build -t ${env.IMAGE_TAG} ."
+                    echo "Docker build completed."
+
+                    def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
+                    def effectiveBranch = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
+                    echo "effectiveBranch ${effectiveBranch}"
+                    def shouldPush = params.FORCE_PUSH || (effectiveBranch in ['develop', 'master'])
+                    if (shouldPush) {
+                        echo "Pushing Docker image for branch: ${effectiveBranch}"
+                        withCredentials([usernamePassword(credentialsId: 'maddie-docker',
+                                                          passwordVariable: 'DOCKER_HUB_PASS',
+                                                          usernameVariable: 'DOCKER_HUB_USER')]) {
+                            echo "Logging into Docker Hub..."
+                            sh "echo ${DOCKER_HUB_PASS} | docker login -u ${DOCKER_HUB_USER} --password-stdin"
+                            echo "Docker Hub login succeeded."
+                        }
+                        sh "docker push ${env.IMAGE_TAG}"
+                    } else {
+                        echo "Skipping Docker push for branch: ${effectiveBranch}"
+                    }
+                }
+            }
+        }
     }
-    failure {
-      echo "Pipeline failed! Check the logs for errors."
+
+    post {
+        always {
+            echo "Cleaning up build environment..."
+        }
     }
-  }
 }
+
+
+
+
