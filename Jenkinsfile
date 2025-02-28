@@ -1,3 +1,21 @@
+/**
+ * Author: Madeline Moldrem
+ *
+ * This Jenkins pipeline automates the build process for the OAuth2 server.
+ * It performs the following actions:
+ *   - Sets an initial GitHub commit status to 'pending' to indicate the build is in progress.
+ *   - Checks out the code from GitHub based on the provided branch parameters.
+ *   - Generates a unique Docker image tag using the commit hash and branch information.
+ *   - Builds the Docker image and conditionally pushes it to Docker Hub.
+ *   - Updates the GitHub commit status to SUCCESS or FAILURE depending on the final build result.
+ *
+ * Requirements:
+ *   - Proper GitHub credentials with at least the "repo:status" scope.
+ *   - Necessary plugins installed and up-to-date (GitHub Plugin, GitHub Branch Source Plugin,
+ *     GitHub Commit Status Setter Plugin or GitHub Checks Plugin).
+ *   - A build trigger that provides the correct commit SHA (via webhooks or multibranch pipeline).
+ */
+
 pipeline {
     agent any
 
@@ -25,14 +43,13 @@ pipeline {
             }
         }
 
-
-        // Stage 2: Checkout the code from GitHub
+        // Stage 2: Checkout the code from GitHub.
         stage('Checkout') {
             steps {
                 script {
                     // Remove the 'refs/heads/' prefix from WEBHOOK_BRANCH if set.
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
-                    // Use webhookBranch if available; otherwise fallback to BRANCH_BUILD or default to 'master'
+                    // Use webhookBranch if available; otherwise fallback to BRANCH_BUILD or default to 'master'.
                     def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
                     echo "Checking out branch: ${branchToCheckout}"
                     checkout([
