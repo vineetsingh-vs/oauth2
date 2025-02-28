@@ -25,7 +25,7 @@ pipeline {
     stages {
         stage('Print Parameters') {
             steps {
-                echo "WEBHOOK_BRANCH: ${params.WEBHOOK_BRANCH}"
+
                 echo "BRANCH_BUILD: ${params.BRANCH_BUILD}"
                 echo "FORCE_PUSH: ${params.FORCE_PUSH}"
             }
@@ -36,6 +36,7 @@ pipeline {
                 script {
                     // If WEBHOOK_BRANCH is set, remove the 'refs/heads/' prefix.
                     def webhookBranch = params.WEBHOOK_BRANCH?.trim() ? params.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
+                    echo "WEBHOOK_BRANCH: ${webhookBranch}"
                     // Use webhookBranch if available; otherwise fallback to the Git parameter or default to 'master'
                     def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
 
