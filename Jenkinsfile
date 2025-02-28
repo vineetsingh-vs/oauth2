@@ -26,6 +26,7 @@ pipeline {
         stage('Print Parameters') {
             steps {
 
+                echo "WEBHOOK_BRANCH: ${env.WEBHOOK_BRANCH}"
                 echo "BRANCH_BUILD: ${params.BRANCH_BUILD}"
                 echo "FORCE_PUSH: ${params.FORCE_PUSH}"
             }
@@ -35,8 +36,7 @@ pipeline {
             steps {
                 script {
                     // If WEBHOOK_BRANCH is set, remove the 'refs/heads/' prefix.
-                    def webhookBranch = params.WEBHOOK_BRANCH?.trim() ? params.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
-                    echo "WEBHOOK_BRANCH: ${env.WEBHOOK_BRANCH}"
+                    def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
                     // Use webhookBranch if available; otherwise fallback to the Git parameter or default to 'master'
                     def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
 
@@ -55,7 +55,7 @@ pipeline {
                 script {
                     def commitHash = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     // Use the same branch logic for the tag
-                    def webhookBranch = params.WEBHOOK_BRANCH?.trim() ? params.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
+                    def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
                     def branchUsed = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
                     def sanitizedBranch = branchUsed.replace('/', '-')
                     env.IMAGE_TAG = "${DOCKER_REPO}:${sanitizedBranch}-${env.BUILD_NUMBER}-${commitHash}"
@@ -71,7 +71,7 @@ pipeline {
                     sh "docker build -t ${env.IMAGE_TAG} ."
                     echo "Docker build completed."
 
-                    def webhookBranch = params.WEBHOOK_BRANCH?.trim() ? params.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
+                    def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
                     def effectiveBranch = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
                     def shouldPush = params.FORCE_PUSH || (effectiveBranch in ['develop', 'master'])
                     if (shouldPush) {
