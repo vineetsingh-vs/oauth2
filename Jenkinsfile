@@ -57,9 +57,15 @@ pipeline {
                             sh "docker build -t ${env.IMAGE_TAG} ."
                             echo "Docker build completed."
 
-                            // Detect if the build was manually triggered
-                            def isManual = currentBuild.getBuildCauses().any { it instanceof hudson.model.Cause.UserIdCause }
-                            echo "Was the build manually triggered? ${isManual}"
+                            // Print out all causes for debugging.
+                            def causes = currentBuild.rawBuild.getCauses()
+                            for (cause in causes) {
+                                echo "Build cause: ${cause.getShortDescription()}"
+                            }
+
+                            // Determine if this build was manually triggered.
+                            def isManual = causes.every { !(it instanceof org.jenkinsci.plugins.genericwebhooktrigger.GenericWebhookCause) }
+                            echo "Is manual build? ${isManual}"
 
                             // Determine effective branch: prefer WEBHOOK_BRANCH if available
                             def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
