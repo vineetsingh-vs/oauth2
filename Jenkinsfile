@@ -8,15 +8,15 @@ pipeline {
     }
 
     stages {
+        // Stage 1: Immediately set a pending status on GitHub to indicate the build is in progress.
         stage('Set GitHub Pending Status') {
             steps {
                 script {
-                    // Set an initial pending status without specifying errorHandlers or contextSource.
                     def pendingStatusParams = [
                         statusResultSource: [
                             $class: 'ConditionalStatusResultSource',
                             results: [
-                                [$class: 'AnyBuildResult', message: 'Build is in progress', state: 'PENDING']
+                                [$class: 'AnyBuildResult', message: 'Build in progress', state: 'PENDING']
                             ]
                         ]
                     ]
@@ -25,6 +25,7 @@ pipeline {
             }
         }
 
+        // Stage 2: Print build parameters (optional)
         stage('Print Parameters') {
             steps {
                 echo "WEBHOOK_BRANCH: ${env.WEBHOOK_BRANCH}"
@@ -32,23 +33,26 @@ pipeline {
             }
         }
 
+        // Stage 3: Checkout the code from GitHub
         stage('Checkout') {
             steps {
                 script {
                     // Remove the 'refs/heads/' prefix from WEBHOOK_BRANCH if set.
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
-                    // Use webhookBranch if available; otherwise fallback to BRANCH_BUILD or 'master'.
+                    // Use webhookBranch if available; otherwise fallback to BRANCH_BUILD or default to 'master'
                     def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
-                    echo "Checkout: ${branchToCheckout}"
-                    checkout([$class: 'GitSCM',
-                              branches: [[name: branchToCheckout]],
-                              userRemoteConfigs: [[url: 'https://github.com/vineetsingh-vs/oauth2.git']]
+                    echo "Checking out branch: ${branchToCheckout}"
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: branchToCheckout]],
+                        userRemoteConfigs: [[url: 'https://github.com/vineetsingh-vs/oauth2.git']]
                     ])
                     echo "Checked out branch: ${branchToCheckout}"
                 }
             }
         }
 
+        // Stage 4: Set a unique Docker image tag based on commit hash and branch.
         stage('Set Unique Tag') {
             steps {
                 script {
@@ -62,6 +66,7 @@ pipeline {
             }
         }
 
+        // Stage 5: Build the Docker image and push it conditionally.
         stage('Build and (Conditionally) Push Docker Image') {
             steps {
                 script {
@@ -71,7 +76,8 @@ pipeline {
 
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
                     def effectiveBranch = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
-                    // Decide to push only if branch is manually triggered or is develop/master.
+
+                    // Push if triggered manually or if branch is develop/master (or their origin forms).
                     def shouldPush = !webhookBranch || (effectiveBranch in ['develop', 'master', 'origin/develop', 'origin/master'])
                     if (shouldPush) {
                         echo "Pushing Docker image for branch: ${effectiveBranch}"
@@ -90,10 +96,10 @@ pipeline {
             }
         }
 
+        // Stage 6: Update the GitHub commit status with the final result.
         stage('Set GitHub Commit Status') {
             steps {
                 script {
-                    // Determine final build status.
                     def status = currentBuild.currentResult == 'SUCCESS' ? 'SUCCESS' : 'FAILURE'
                     def message = currentBuild.currentResult == 'SUCCESS' ? 'Build completed successfully' : 'Build failed'
 
