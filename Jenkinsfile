@@ -2,17 +2,17 @@ pipeline {
     agent any
 
     parameters {
-
-           gitParameter(
-                    name: 'BRANCH_BUILD',
-                    type: 'PT_BRANCH',                 // Must specify a valid type: PT_BRANCH, PT_TAG, etc.
-                    defaultValue: 'origin/master',
-                    description: 'Select branch to build',
-                    useRepository: 'https://github.com/vineetsingh-vs/oauth2.git',
-                    branchFilter: '.*',
-                    sortMode: 'ASCENDING',
-                    quickFilterEnabled: true
-                )
+        // Git Parameter for manual selection (if needed)
+        gitParameter(
+            name: 'BRANCH_BUILD',
+            type: 'PT_BRANCH', // Use PT_BRANCH to list branches
+            defaultValue: 'origin/master',
+            description: 'Select branch to build',
+            useRepository: 'https://github.com/vineetsingh-vs/oauth2.git',
+            branchFilter: '.*',
+            sortMode: 'ASCENDING',
+            quickFilterEnabled: true
+        )
         booleanParam(name: 'FORCE_PUSH', defaultValue: false, description: 'Force push Docker image on manual build')
     }
 
@@ -25,8 +25,8 @@ pipeline {
     stages {
         stage('Print Parameters') {
             steps {
-                // This should show the value injected by the webhook.
-                echo "WEBHOOK_BUILD: ${params.WEBHOOK_BRANCH}"
+                echo "WEBHOOK_BRANCH: ${params.WEBHOOK_BRANCH}"
+                echo "BRANCH_BUILD: ${params.BRANCH_BUILD}"
                 echo "FORCE_PUSH: ${params.FORCE_PUSH}"
             }
         }
@@ -34,15 +34,17 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                        echo "WEBHOOK_BRANCH: ${params.WEBHOOK_BRANCH}"
-                    // If WEBHOOK_BRANCH is set, use that; otherwise fall back to BRANCH_BUILD
-                           def branchToCheckout = params.WEBHOOK_BRANCH?.trim() ? params.WEBHOOK_BRANCH
-                                                          : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
-                           checkout([$class: 'GitSCM',
-                                              branches: [[name: branchToCheckout]],
-                                              userRemoteConfigs: [[url: 'https://github.com/your/repo.git']]
-                                    ])
-                           echo "Checked out branch: ${branchToCheckout}"
+                    // If WEBHOOK_BRANCH is set, remove the 'refs/heads/' prefix.
+                    def webhookBranch = params.WEBHOOK_BRANCH?.trim() ? params.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
+                    // Use webhookBranch if available; otherwise fallback to the Git parameter or default to 'master'
+                    def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
+
+                    // Use your actual repository URL
+                    checkout([$class: 'GitSCM',
+                              branches: [[name: branchToCheckout]],
+                              userRemoteConfigs: [[url: 'https://github.com/vineetsingh-vs/oauth2.git']]
+                    ])
+                    echo "Checked out branch: ${branchToCheckout}"
                 }
             }
         }
@@ -51,7 +53,10 @@ pipeline {
             steps {
                 script {
                     def commitHash = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    def sanitizedBranch = (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master').replace('/', '-')
+                    // Use the same branch logic for the tag
+                    def webhookBranch = params.WEBHOOK_BRANCH?.trim() ? params.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
+                    def branchUsed = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
+                    def sanitizedBranch = branchUsed.replace('/', '-')
                     env.IMAGE_TAG = "${DOCKER_REPO}:${sanitizedBranch}-${env.BUILD_NUMBER}-${commitHash}"
                     echo "Unique Docker Image Tag: ${env.IMAGE_TAG}"
                 }
@@ -65,7 +70,8 @@ pipeline {
                     sh "docker build -t ${env.IMAGE_TAG} ."
                     echo "Docker build completed."
 
-                    def effectiveBranch = params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master'
+                    def webhookBranch = params.WEBHOOK_BRANCH?.trim() ? params.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
+                    def effectiveBranch = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
                     def shouldPush = params.FORCE_PUSH || (effectiveBranch in ['develop', 'master'])
                     if (shouldPush) {
                         echo "Pushing Docker image for branch: ${effectiveBranch}"
@@ -91,8 +97,3 @@ pipeline {
         }
     }
 }
-
-
-
-
-
