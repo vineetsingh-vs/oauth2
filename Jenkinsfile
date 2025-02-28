@@ -18,6 +18,7 @@ pipeline {
                     // Otherwise, after checkout you can use the full commit SHA.
                     //
                     // For now, send a "pending" status using the commit hash you will resolve later.
+                    echo "PENDING: ${env.GIT_COMMIT_SHA}"
                     githubNotify context: 'Jenkins CI', status: 'PENDING', message: 'Build started', commitSha: "${env.GIT_COMMIT_SHA}"
                 }
             }
