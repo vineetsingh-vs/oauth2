@@ -6,7 +6,7 @@ pipeline {
         gitParameter(
             name: 'BRANCH_BUILD',
             type: 'PT_BRANCH', // Use PT_BRANCH to list branches
-            defaultValue: 'origin/master',
+            defaultValue: env.WEBHOOK_BRANCH?.trim() ?  'origin/'+ env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : 'origin/master',
             description: 'Select branch to build',
             useRepository: 'https://github.com/vineetsingh-vs/oauth2.git',
             branchFilter: '.*',
