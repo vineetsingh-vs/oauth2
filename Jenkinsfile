@@ -8,6 +8,23 @@ pipeline {
     }
 
     stages {
+        stage('Set GitHub Pending Status') {
+            steps {
+                script {
+                    def commitStatusParams = [
+                        errorHandlers: [[$class: 'GitHubCommitStatusErrorHandler', resultOnError: 'FAILURE']],
+                        statusResultSource: [
+                            $class: 'ConditionalStatusResultSource',
+                            results: [
+                                [$class: 'AnyBuildResult', message: 'Build is in progress', state: 'PENDING']
+                            ]
+                        ]
+                    ]
+                    step([$class: 'GitHubCommitStatusSetter'] + commitStatusParams)
+                }
+            }
+        }
+
         stage('Print Parameters') {
             steps {
                 echo "WEBHOOK_BRANCH: ${env.WEBHOOK_BRANCH}"
@@ -18,14 +35,13 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    // If WEBHOOK_BRANCH is set, remove the 'refs/heads/' prefix.
+                    // Remove the 'refs/heads/' prefix if WEBHOOK_BRANCH is set.
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
-                    // Use webhookBranch if available; otherwise fallback to the Git parameter or default to 'master'
+                    // Use webhookBranch if available; otherwise, fallback to the BRANCH_BUILD parameter or default to 'master'.
                     def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
 
                     echo "Checkout: ${branchToCheckout}"
 
-                    // Use your actual repository URL
                     checkout([$class: 'GitSCM',
                               branches: [[name: branchToCheckout]],
                               userRemoteConfigs: [[url: 'https://github.com/vineetsingh-vs/oauth2.git']]
@@ -39,7 +55,6 @@ pipeline {
             steps {
                 script {
                     def commitHash = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    // Use the same branch logic for the tag
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
                     def branchUsed = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
                     def sanitizedBranch = branchUsed.replace('/', '-')
@@ -56,12 +71,10 @@ pipeline {
                     sh "docker build -t ${env.IMAGE_TAG} ."
                     echo "Docker build completed."
 
-                    // Determine effective branch: prefer WEBHOOK_BRANCH if available
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
                     def effectiveBranch = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
 
-                    // Decide whether to push:
-                    // Push if manually triggered OR if the branch is develop/master (or their origin forms)
+                    // Push if manually triggered or if branch is develop/master (or their origin forms).
                     def shouldPush = !webhookBranch || (effectiveBranch in ['develop', 'master', 'origin/develop', 'origin/master'])
 
                     if (shouldPush) {
@@ -84,12 +97,11 @@ pipeline {
         stage('Set GitHub Commit Status') {
             steps {
                 script {
-                    // Determine build status and message.
+                    // Set the final commit status based on the build result.
                     def status = currentBuild.currentResult == 'SUCCESS' ? 'SUCCESS' : 'FAILURE'
                     def message = currentBuild.currentResult == 'SUCCESS' ? 'Build completed successfully' : 'Build failed'
 
                     def commitStatusParams = [
-                        contextSource: [$class: 'DefaultGitHubStatusContextSource', context: 'Jenkins'],
                         errorHandlers: [[$class: 'GitHubCommitStatusErrorHandler', resultOnError: 'FAILURE']],
                         statusResultSource: [
                             $class: 'ConditionalStatusResultSource',
