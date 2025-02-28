@@ -81,28 +81,27 @@ pipeline {
             }
         }
 
-        stage('Set GitHub Commit Status') {
-            steps {
-                script {
-                    // Determine the build result to set the appropriate status
-                    def status = currentBuild.currentResult == 'SUCCESS' ? 'SUCCESS' : 'FAILURE'
-                    def message = currentBuild.currentResult == 'SUCCESS' ? 'Build completed successfully' : 'Build failed'
+       stage('Set GitHub Commit Status') {
+           steps {
+               script {
+                   // Determine build status and message.
+                   def status = currentBuild.currentResult == 'SUCCESS' ? 'SUCCESS' : 'FAILURE'
+                   def message = currentBuild.currentResult == 'SUCCESS' ? 'Build completed successfully' : 'Build failed'
 
-                    def commitStatusParams = [
-                        contextSource: [$class: 'ManuallyEnteredGitHubStatusContextSource', context: 'Jenkins'],
-                        errorHandlers: [[$class: 'GitHubCommitStatusErrorHandler', resultOnError: 'FAILURE']],
-                        statusResultSource: [
-                            $class: 'ConditionalStatusResultSource',
-                            results: [
-                                [$class: 'AnyBuildResult', message: message, state: status]
-                            ]
-                        ]
-                    ]
-                    step([$class: 'GitHubCommitStatusSetter'] + commitStatusParams)
-                }
-            }
-        }
-    }
+                   def commitStatusParams = [
+                       contextSource: [$class: 'DefaultGitHubStatusContextSource', context: 'Jenkins'],
+                       errorHandlers: [[$class: 'GitHubCommitStatusErrorHandler', resultOnError: 'FAILURE']],
+                       statusResultSource: [
+                           $class: 'ConditionalStatusResultSource',
+                           results: [
+                               [$class: 'AnyBuildResult', message: message, state: status]
+                           ]
+                       ]
+                   ]
+                   step([$class: 'GitHubCommitStatusSetter'] + commitStatusParams)
+               }
+           }
+       }
 
     post {
         always {
