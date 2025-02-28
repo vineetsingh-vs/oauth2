@@ -57,17 +57,13 @@ pipeline {
                             sh "docker build -t ${env.IMAGE_TAG} ."
                             echo "Docker build completed."
 
-                            // Detect if the build was manually triggered
-                            def isManual = false
-                            echo "Was the build manually triggered? ${isManual}"
-
                             // Determine effective branch: prefer WEBHOOK_BRANCH if available
                             def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
                             def effectiveBranch = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
 
                             // Decide whether to push:
                             // Push if manually triggered OR if the branch is develop/master (or their origin forms)
-                            def shouldPush = isManual || (effectiveBranch in ['develop', 'master', 'origin/develop', 'origin/master'])
+                            def shouldPush = !webhookBranch || (effectiveBranch in ['develop', 'master', 'origin/develop', 'origin/master'])
 
                             if (shouldPush) {
                                 echo "Pushing Docker image for branch: ${effectiveBranch}"
