@@ -5,6 +5,7 @@ pipeline {
         DOCKER_REPO = "maddiemoldrem/oauth_server"
         DOCKER_COMPOSE_FILE = "docker-compose.yml"
         GITHUB_REPO = "vineetsingh-vs/oauth2"
+        GITHUB_TOKEN_ID = "maddie-PAT"
     }
 
     stages {
@@ -35,6 +36,30 @@ pipeline {
                 }
             }
         }
+
+        stage('Notify GitHub - Pending') {
+                    steps {
+                        script {
+                            // 1) Get the commit SHA Jenkins is building
+                            def commitSha = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
+
+                            // 2) Use your personal access token to send a pending status
+                            withCredentials([string(credentialsId: GITHUB_TOKEN_ID, variable: 'GITHUB_TOKEN')]) {
+                                sh """
+                                curl -H "Authorization: token \$GITHUB_TOKEN" \
+                                     -d '{
+                                       "state": "pending",
+                                       "target_url": "${env.BUILD_URL}",
+                                       "context": "CI Build",
+                                       "description": "Build started"
+                                     }' \
+                                     https://api.github.com/repos/${env.GITHUB_REPO}/statuses/${commitSha}
+                                """
+                            }
+                        }
+                    }
+                }
+
 
         stage('Set Unique Tag') {
             steps {
@@ -83,11 +108,45 @@ pipeline {
                 }
             }
 
-    post {
-        always {
-            echo "Cleaning up build environment..."
+     post {
+            success {
+                script {
+                    def commitSha = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
+                    withCredentials([string(credentialsId: GITHUB_TOKEN_ID, variable: 'GITHUB_TOKEN')]) {
+                        sh """
+                        curl -H "Authorization: token \$GITHUB_TOKEN" \
+                             -d '{
+                               "state": "success",
+                               "target_url": "${env.BUILD_URL}",
+                               "context": "CI Build",
+                               "description": "Build succeeded"
+                             }' \
+                             https://api.github.com/repos/${env.GITHUB_REPO}/statuses/${commitSha}
+                        """
+                    }
+                }
+            }
+            failure {
+                script {
+                    def commitSha = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
+                    withCredentials([string(credentialsId: GITHUB_TOKEN_ID, variable: 'GITHUB_TOKEN')]) {
+                        sh """
+                        curl -H "Authorization: token \$GITHUB_TOKEN" \
+                             -d '{
+                               "state": "failure",
+                               "target_url": "${env.BUILD_URL}",
+                               "context": "CI Build",
+                               "description": "Build failed"
+                             }' \
+                             https://api.github.com/repos/${env.GITHUB_REPO}/statuses/${commitSha}
+                        """
+                    }
+                }
+            }
+            always {
+                echo "Cleaning up..."
+            }
         }
-    }
 }
 
 
