@@ -75,8 +75,8 @@ pipeline {
 
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
                     def effectiveBranch = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
-                    echo "effectiveBranch ${effectiveBranch}"
                     def shouldPush = params.FORCE_PUSH || (effectiveBranch in ['develop', 'master', 'origin/develop', 'origin/master'])
+                    echo "shouldPush ${shouldPush}"
                     if (shouldPush) {
                         echo "Pushing Docker image for branch: ${effectiveBranch}"
                         withCredentials([usernamePassword(credentialsId: 'maddie-docker',
