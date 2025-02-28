@@ -3,16 +3,16 @@ pipeline {
 
     parameters {
         // Git Parameter for manual selection (if needed)
-        gitParameter(
-            name: 'BRANCH_BUILD',
-            type: 'PT_BRANCH', // Use PT_BRANCH to list branches
-            defaultValue: env.WEBHOOK_BRANCH?.trim() ?  'origin/'+ env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : 'origin/master',
-            description: 'Select branch to build',
-            useRepository: 'https://github.com/vineetsingh-vs/oauth2.git',
-            branchFilter: '.*',
-            sortMode: 'ASCENDING',
-            quickFilterEnabled: true
-        )
+//         gitParameter(
+//             name: 'BRANCH_BUILD',
+//             type: 'PT_BRANCH', // Use PT_BRANCH to list branches
+//             defaultValue: 'origin/master',
+//             description: 'Select branch to build',
+//             useRepository: 'https://github.com/vineetsingh-vs/oauth2.git',
+//             branchFilter: '.*',
+//             sortMode: 'ASCENDING',
+//             quickFilterEnabled: true
+//         )
         booleanParam(name: 'FORCE_PUSH', defaultValue: false, description: 'Force push Docker image on manual build')
     }
 
