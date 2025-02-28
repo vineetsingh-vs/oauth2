@@ -13,7 +13,6 @@ pipeline {
                     sortMode: 'ASCENDING',
                     quickFilterEnabled: true
                 )
-        // Remove the manual BRANCH_BUILD parameter to let the webhook trigger inject it.
         booleanParam(name: 'FORCE_PUSH', defaultValue: false, description: 'Force push Docker image on manual build')
     }
 
@@ -92,6 +91,7 @@ pipeline {
         }
     }
 }
+
 
 
 
