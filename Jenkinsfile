@@ -11,7 +11,6 @@ pipeline {
                     useRepository: 'https://github.com/vineetsingh-vs/oauth2.git',
                     branchFilter: '.*',
                     sortMode: 'ASCENDING',
-                    selectedValue: 'TOP',
                     quickFilterEnabled: true
                 )
         // Remove the manual BRANCH_BUILD parameter to let the webhook trigger inject it.
