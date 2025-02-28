@@ -36,7 +36,7 @@ pipeline {
                 script {
                     // If WEBHOOK_BRANCH is set, remove the 'refs/heads/' prefix.
                     def webhookBranch = params.WEBHOOK_BRANCH?.trim() ? params.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
-                    echo "WEBHOOK_BRANCH: ${params}"
+                    echo "WEBHOOK_BRANCH: ${env.WEBHOOK_BRANCH}"
                     // Use webhookBranch if available; otherwise fallback to the Git parameter or default to 'master'
                     def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
 
