@@ -1,21 +1,6 @@
 pipeline {
     agent any
 
-    parameters {
-        // Git Parameter for manual selection (if needed)
-//         gitParameter(
-//             name: 'BRANCH_BUILD',
-//             type: 'PT_BRANCH', // Use PT_BRANCH to list branches
-//             defaultValue: 'origin/master',
-//             description: 'Select branch to build',
-//             useRepository: 'https://github.com/vineetsingh-vs/oauth2.git',
-//             branchFilter: '.*',
-//             sortMode: 'ASCENDING',
-//             quickFilterEnabled: true
-//         )
-        booleanParam(name: 'FORCE_PUSH', defaultValue: false, description: 'Force push Docker image on manual build')
-    }
-
     environment {
         DOCKER_REPO = "maddiemoldrem/oauth_server"
         DOCKER_COMPOSE_FILE = "docker-compose.yml"
@@ -28,7 +13,6 @@ pipeline {
 
                 echo "WEBHOOK_BRANCH: ${env.WEBHOOK_BRANCH}"
                 echo "BRANCH_BUILD: ${params.BRANCH_BUILD}"
-                echo "FORCE_PUSH: ${params.FORCE_PUSH}"
             }
         }
 
@@ -67,33 +51,41 @@ pipeline {
         }
 
         stage('Build and (Conditionally) Push Docker Image') {
-            steps {
-                script {
-                    echo "Building Docker image with tag ${env.IMAGE_TAG}"
-                    sh "docker build -t ${env.IMAGE_TAG} ."
-                    echo "Docker build completed."
+                    steps {
+                        script {
+                            echo "Building Docker image with tag ${env.IMAGE_TAG}"
+                            sh "docker build -t ${env.IMAGE_TAG} ."
+                            echo "Docker build completed."
 
-                    def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
-                    def effectiveBranch = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
-                    def shouldPush = params.FORCE_PUSH || (effectiveBranch in ['develop', 'master', 'origin/develop', 'origin/master'])
-                    echo "shouldPush ${shouldPush}"
-                    if (shouldPush) {
-                        echo "Pushing Docker image for branch: ${effectiveBranch}"
-                        withCredentials([usernamePassword(credentialsId: 'maddie-docker',
-                                                          passwordVariable: 'DOCKER_HUB_PASS',
-                                                          usernameVariable: 'DOCKER_HUB_USER')]) {
-                            echo "Logging into Docker Hub..."
-                            sh "echo ${DOCKER_HUB_PASS} | docker login -u ${DOCKER_HUB_USER} --password-stdin"
-                            echo "Docker Hub login succeeded."
+                            // Detect if the build was manually triggered
+                            def isManual = currentBuild.getBuildCauses().any { it instanceof hudson.model.Cause.UserIdCause }
+                            echo "Was the build manually triggered? ${isManual}"
+
+                            // Determine effective branch: prefer WEBHOOK_BRANCH if available
+                            def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
+                            def effectiveBranch = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
+
+                            // Decide whether to push:
+                            // Push if manually triggered OR if the branch is develop/master (or their origin forms)
+                            def shouldPush = isManual || (effectiveBranch in ['develop', 'master', 'origin/develop', 'origin/master'])
+
+                            if (shouldPush) {
+                                echo "Pushing Docker image for branch: ${effectiveBranch}"
+                                withCredentials([usernamePassword(credentialsId: 'maddie-docker',
+                                                                  passwordVariable: 'DOCKER_HUB_PASS',
+                                                                  usernameVariable: 'DOCKER_HUB_USER')]) {
+                                    echo "Logging into Docker Hub..."
+                                    sh "echo ${DOCKER_HUB_PASS} | docker login -u ${DOCKER_HUB_USER} --password-stdin"
+                                    echo "Docker Hub login succeeded."
+                                }
+                                sh "docker push ${env.IMAGE_TAG}"
+                            } else {
+                                echo "Skipping Docker push for branch: ${effectiveBranch}"
+                            }
                         }
-                        sh "docker push ${env.IMAGE_TAG}"
-                    } else {
-                        echo "Skipping Docker push for branch: ${effectiveBranch}"
                     }
                 }
             }
-        }
-    }
 
     post {
         always {
