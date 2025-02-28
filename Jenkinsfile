@@ -11,8 +11,8 @@ pipeline {
         stage('Set GitHub Pending Status') {
             steps {
                 script {
-                    def commitStatusParams = [
-                        errorHandlers: [[$class: 'GitHubCommitStatusErrorHandler', resultOnError: 'FAILURE']],
+                    // Set an initial pending status without specifying errorHandlers or contextSource.
+                    def pendingStatusParams = [
                         statusResultSource: [
                             $class: 'ConditionalStatusResultSource',
                             results: [
@@ -20,7 +20,7 @@ pipeline {
                             ]
                         ]
                     ]
-                    step([$class: 'GitHubCommitStatusSetter'] + commitStatusParams)
+                    step([$class: 'GitHubCommitStatusSetter'] + pendingStatusParams)
                 }
             }
         }
@@ -35,13 +35,11 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    // Remove the 'refs/heads/' prefix if WEBHOOK_BRANCH is set.
+                    // Remove the 'refs/heads/' prefix from WEBHOOK_BRANCH if set.
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
-                    // Use webhookBranch if available; otherwise, fallback to the BRANCH_BUILD parameter or default to 'master'.
+                    // Use webhookBranch if available; otherwise fallback to BRANCH_BUILD or 'master'.
                     def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
-
                     echo "Checkout: ${branchToCheckout}"
-
                     checkout([$class: 'GitSCM',
                               branches: [[name: branchToCheckout]],
                               userRemoteConfigs: [[url: 'https://github.com/vineetsingh-vs/oauth2.git']]
@@ -73,10 +71,8 @@ pipeline {
 
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
                     def effectiveBranch = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
-
-                    // Push if manually triggered or if branch is develop/master (or their origin forms).
+                    // Decide to push only if branch is manually triggered or is develop/master.
                     def shouldPush = !webhookBranch || (effectiveBranch in ['develop', 'master', 'origin/develop', 'origin/master'])
-
                     if (shouldPush) {
                         echo "Pushing Docker image for branch: ${effectiveBranch}"
                         withCredentials([usernamePassword(credentialsId: 'maddie-docker',
@@ -97,12 +93,11 @@ pipeline {
         stage('Set GitHub Commit Status') {
             steps {
                 script {
-                    // Set the final commit status based on the build result.
+                    // Determine final build status.
                     def status = currentBuild.currentResult == 'SUCCESS' ? 'SUCCESS' : 'FAILURE'
                     def message = currentBuild.currentResult == 'SUCCESS' ? 'Build completed successfully' : 'Build failed'
 
-                    def commitStatusParams = [
-                        errorHandlers: [[$class: 'GitHubCommitStatusErrorHandler', resultOnError: 'FAILURE']],
+                    def finalStatusParams = [
                         statusResultSource: [
                             $class: 'ConditionalStatusResultSource',
                             results: [
@@ -110,7 +105,7 @@ pipeline {
                             ]
                         ]
                     ]
-                    step([$class: 'GitHubCommitStatusSetter'] + commitStatusParams)
+                    step([$class: 'GitHubCommitStatusSetter'] + finalStatusParams)
                 }
             }
         }
