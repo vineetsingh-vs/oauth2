@@ -18,6 +18,9 @@ pipeline {
         DOCKER_REPO = "maddiemoldrem/oauth_server"
         DOCKER_COMPOSE_FILE = "docker-compose.yml"
         GITHUB_REPO = "vineetsingh-vs/oauth2"
+        // Enable BuildKit for potentially faster and more reliable builds.
+        DOCKER_BUILDKIT = "1"
+        COMPOSE_DOCKER_CLI_BUILD = "1"
     }
 
     stages {
@@ -74,18 +77,18 @@ pipeline {
             steps {
                 script {
                     echo "Building docker-compose services with no-cache..."
-                    // Build the services with no cache to ensure fresh images.
+                    // Use BuildKit by ensuring environment variables are set (already in environment block).
                     sh "docker-compose build --no-cache"
 
                     echo "Starting docker-compose services in detached mode..."
                     // Start the services in detached mode.
                     sh "docker-compose up -d"
 
-                    // Wait for a fixed period to allow the services to initialize (adjust time as needed).
+                    // Wait for a fixed period to allow services to initialize.
                     echo "Waiting for services to initialize..."
                     sleep 30
 
-                    // Check the health status of the oauth service (ensure your docker-compose file defines a healthcheck).
+                    // Check the health status of the 'oauth' service (make sure your docker-compose.yml defines a healthcheck for it).
                     def oauthContainerId = sh(script: "docker-compose ps -q oauth", returnStdout: true).trim()
                     if (oauthContainerId == "") {
                         error "OAuth container not found."
