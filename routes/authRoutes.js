@@ -11,7 +11,7 @@ const loginLimiter = rateLimit({
     max: 10,
     message: 'Too many login attempts from this IP, please try again after 15 minutes'
 });
-
+sds
 router.get('/', loginLimiter, loginController.getLogin);
 router.get('/register', registerController.getRegister);
 router.post('/register', registerController.postRegister);
