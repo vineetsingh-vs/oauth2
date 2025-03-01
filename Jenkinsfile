@@ -78,34 +78,22 @@ pipeline {
             }
         }
 
-        // Stage 4: Docker Compose Pre-Test to catch runtime failures (e.g. npm start fails)
+        // New Stage: Docker Compose Pre-Test to catch runtime failures (e.g. npm start fails)
         stage('Docker Compose Pre-Test') {
             steps {
                 script {
-                    echo "Starting docker-compose services in detached mode with --build"
-                    sh "docker-compose up -d --build"
-
-                    echo "Waiting for services to initialize..."
-                    sleep 180  // Adjust the sleep time as needed
-
-                    echo "Checking health endpoint for service..."
-                    try {
-                        // Replace with your service's actual health endpoint
-                        sh "curl -f http://localhost:3001/health"
-                        echo "Health endpoint returned successfully."
-                    } catch (Exception e) {
-                        // If the health check fails, bring the containers down and fail the stage.
-                        sh "docker-compose down"
-                        error "Pre-test failed: Health endpoint did not become healthy."
+                    echo "Running docker-compose pre-test with --build --abort-on-container-exit"
+                    // Use a timeout to prevent hanging if the containers run indefinitely.
+                    timeout(time: 60, unit: 'SECONDS') {
+                        sh "docker-compose up --build --abort-on-container-exit"
                     }
-
-                    echo "Pre-test passed: Service is healthy. Exiting pre-test stage and shutting down containers."
+                    // After the test, ensure the containers are brought down.
                     sh "docker-compose down"
                 }
             }
         }
 
-        // Stage 5: Build the Docker image and push it conditionally.
+        // Stage 4: Build the Docker image and push it conditionally.
         stage('Build and (Conditionally) Push Docker Image') {
             steps {
                 script {
@@ -135,7 +123,7 @@ pipeline {
             }
         }
 
-        // Stage 6: Update the GitHub commit status with the final result.
+        // Stage 5: Update the GitHub commit status with the final result.
         stage('Set GitHub Commit Status') {
             steps {
                 script {
