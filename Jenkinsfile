@@ -84,17 +84,18 @@ pipeline {
                      sh "docker-compose up -d --build"
 
                      echo "Waiting for services to initialize..."
-                     sleep 30  // Adjust the sleep time as needed
+                     sleep 180  // Adjust the sleep time as needed
 
                      echo "Checking health endpoint for service..."
                      try {
-                         // Replace with your service's actual health endpoint
+                         // Replace with your service's actual health endpoint.
                          sh "curl -f http://localhost:3001/health"
                          echo "Health endpoint returned successfully."
                      } catch (Exception e) {
-                         // If the health check fails, bring the containers down and fail the stage.
+                         // If the health check fails, capture logs, bring the containers down, and then fail the stage.
+                         def logs = sh(script: "docker-compose logs", returnStdout: true).trim()
                          sh "docker-compose down"
-                         error "Pre-test failed: Health endpoint did not become healthy."
+                         error "Pre-test failed: Health endpoint did not become healthy.\nContainer logs:\n${logs}"
                      }
 
                      echo "Pre-test passed: Service is healthy. Exiting pre-test stage and shutting down containers."
@@ -102,6 +103,7 @@ pipeline {
                  }
              }
          }
+
 
 
         // Stage 4: Build the Docker image and push it conditionally.
