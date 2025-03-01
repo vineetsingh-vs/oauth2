@@ -79,16 +79,13 @@ pipeline {
         }
 
         // Stage 4: Docker Compose Pre-Test to catch runtime failures (e.g. npm start fails)
-        stage('Pre-Test with Wait-for-It') {
+        stage('Docker Compose Pre-Test') {
             steps {
                 script {
-                    // Start the container in detached mode
-                    sh "docker-compose up -d --build"
-                    // Use the wait-for-it script to check if the service is available.
-                    // Here we assume the script is in your repository root.
-                    sh "./wait-for-it.sh localhost:3001 -t 60"
-                    echo "Service is up."
-                    sh "docker-compose down"
+                     echo "Running docker-compose pre-test with --build --abort-on-container-exit"
+                     sh "docker-compose up --build --abort-on-container-exit"
+                     // After the test, ensure the containers are brought down.
+                     sh "docker-compose down"
                 }
             }
         }
