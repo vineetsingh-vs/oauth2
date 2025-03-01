@@ -83,30 +83,21 @@ pipeline {
                      echo "Starting docker-compose services in detached mode with --build"
                      sh "docker-compose up -d --build"
 
-                     echo "Polling health endpoint for service..."
-                     def maxAttempts = 500  // e.g., 36 attempts x 5 sec delay = 180 seconds max wait
-                     def delay = 5  // seconds between attempts
-                     def healthy = false
-                     for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-                         try {
-                             // Replace with your service's actual health endpoint.
-                             sh "curl -f http://localhost:3001/health"
-                             echo "Attempt ${attempt}: Health endpoint returned successfully."
-                             healthy = true
-                             break
-                         } catch (Exception e) {
-                             echo "Attempt ${attempt}: Health endpoint not ready yet."
-                             sleep delay
-                         }
-                     }
+                     echo "Waiting for services to initialize..."
+                     sleep 180  // Adjust the sleep time as needed
 
-                     if (!healthy) {
+                     echo "Checking health endpoint for service..."
+                     try {
+                         // Replace with your service's actual health endpoint.
+                         sh "curl -f http://localhost:3001/health"
+                     } catch (Exception e) {
+                         // If the health check fails, capture logs, bring the containers down, and then fail the stage.
                          def logs = sh(script: "docker-compose logs", returnStdout: true).trim()
                          sh "docker-compose down"
-                         error "Pre-test failed: Health endpoint did not become healthy after ${maxAttempts} attempts.\nContainer logs:\n${logs}"
+                         error "Pre-test failed: Health endpoint did not become healthy.\nContainer logs:\n${logs}"
                      }
 
-                     echo "Pre-test passed: Service is healthy. Shutting down containers."
+                     echo "Pre-test passed: Service is healthy. Exiting pre-test stage and shutting down containers."
                      sh "docker-compose down"
                  }
              }
