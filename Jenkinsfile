@@ -82,32 +82,10 @@ pipeline {
         stage('Docker Compose Pre-Test') {
             steps {
                 script {
-                    echo "Starting docker-compose services in detached mode..."
-                    sh "docker-compose up -d --build"
-
-                    echo "Waiting for services to initialize..."
-                    sleep 30  // Adjust the waiting time as needed
-
-                    // Get the container ID for the main service (assumed to be "oauth")
-                    def containerId = sh(script: "docker-compose ps -q oauth", returnStdout: true).trim()
-                    if (containerId == "") {
-                        error "Pre-test failed: Container 'oauth' not found. Check docker-compose configuration."
-                    }
-
-                    // Check the health status (requires a healthcheck defined in your docker-compose.yml)
-                    def healthStatus = sh(script: "docker inspect --format='{{.State.Health.Status}}' ${containerId}", returnStdout: true).trim()
-                    echo "Container health status: ${healthStatus}"
-
-                    if (healthStatus != "healthy") {
-                        // Fetch the container logs to show what went wrong
-                        def containerLogs = sh(script: "docker logs ${containerId}", returnStdout: true).trim()
-                        error "Pre-test failed: Container is not healthy (status: ${healthStatus}).\nContainer logs:\n${containerLogs}"
-                    }
-
-                    echo "Pre-test passed: Container is healthy."
-
-                    // Clean up the running containers
-                    sh "docker-compose down"
+                     echo "Running docker-compose pre-test with --build --abort-on-container-exit"
+                     sh "docker-compose up --build --abort-on-container-exit"
+                     // After the test, ensure the containers are brought down.
+                     sh "docker-compose down"
                 }
             }
         }
