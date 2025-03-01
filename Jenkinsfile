@@ -84,7 +84,7 @@ pipeline {
                      sh "docker-compose up -d --build"
 
                      echo "Waiting for services to initialize..."
-                     sleep 180  // Adjust the sleep time as needed
+                     sleep 30  // Adjust the sleep time as needed
 
                      echo "Checking health endpoint for service..."
                      try {
@@ -100,6 +100,8 @@ pipeline {
                      echo "Pre-test passed: Service is healthy. Exiting pre-test stage and shutting down containers."
                      sh "docker-compose down"
                  }
+             }
+         }
 
 
         // Stage 4: Build the Docker image and push it conditionally.
