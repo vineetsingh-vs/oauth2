@@ -82,13 +82,10 @@ pipeline {
         stage('Docker Compose Pre-Test') {
             steps {
                 script {
-                    echo "Running docker-compose pre-test with --build --abort-on-container-exit"
-                    // Use a timeout to prevent hanging if the containers run indefinitely.
-                    timeout(time: 60, unit: 'SECONDS') {
-                        sh "docker-compose up --build --abort-on-container-exit"
-                    }
-                    // After the test, ensure the containers are brought down.
-                    sh "docker-compose down"
+                     echo "Running docker-compose pre-test with --build --abort-on-container-exit"
+                     sh "docker-compose up --build --abort-on-container-exit"
+                     // After the test, ensure the containers are brought down.
+                     sh "docker-compose down"
                 }
             }
         }
