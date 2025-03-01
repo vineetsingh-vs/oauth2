@@ -6,14 +6,9 @@
  *   - Sets an initial GitHub commit status to 'pending' to indicate the build is in progress.
  *   - Checks out the code from GitHub based on the provided branch parameters.
  *   - Generates a unique Docker image tag using the commit hash and branch information.
+ *   - Runs a pre-build docker-compose test using --no-cache and detached mode to ensure the service starts successfully.
  *   - Builds the Docker image and conditionally pushes it to Docker Hub.
  *   - Updates the GitHub commit status to SUCCESS or FAILURE depending on the final build result.
- *
- * Requirements:
- *   - Proper GitHub credentials with at least the "repo:status" scope.
- *   - Necessary plugins installed and up-to-date (GitHub Plugin, GitHub Branch Source Plugin,
- *     GitHub Commit Status Setter Plugin or GitHub Checks Plugin).
- *   - A build trigger that provides the correct commit SHA (via webhooks or multibranch pipeline).
  */
 
 pipeline {
@@ -47,9 +42,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    // Remove the 'refs/heads/' prefix from WEBHOOK_BRANCH if set.
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
-                    // Use webhookBranch if available; otherwise fallback to BRANCH_BUILD or default to 'master'.
                     def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
                     echo "Checking out branch: ${branchToCheckout}"
                     checkout([
@@ -76,7 +69,46 @@ pipeline {
             }
         }
 
-        // Stage 4: Build the Docker image and push it conditionally.
+        // Stage 4: Docker Compose Pre-Test
+        stage('Docker Compose Pre-Test') {
+            steps {
+                script {
+                    echo "Building docker-compose services with no-cache..."
+                    // Build the services with no cache to ensure fresh images.
+                    sh "docker-compose build --no-cache"
+
+                    echo "Starting docker-compose services in detached mode..."
+                    // Start the services in detached mode.
+                    sh "docker-compose up -d"
+
+                    // Wait for a fixed period to allow the services to initialize (adjust time as needed).
+                    echo "Waiting for services to initialize..."
+                    sleep 30
+
+                    // Check the health status of the oauth service (ensure your docker-compose file defines a healthcheck).
+                    def oauthContainerId = sh(script: "docker-compose ps -q oauth", returnStdout: true).trim()
+                    if (oauthContainerId == "") {
+                        error "OAuth container not found."
+                    }
+
+                    def healthStatus = sh(script: "docker inspect --format='{{.State.Health.Status}}' ${oauthContainerId}", returnStdout: true).trim()
+                    echo "OAuth container health status: ${healthStatus}"
+
+                    if (healthStatus != "healthy") {
+                        // Bring down the containers before failing.
+                        sh "docker-compose down"
+                        error "Pre-test failed: OAuth container is not healthy (status: ${healthStatus})"
+                    }
+
+                    echo "Pre-test passed: OAuth container is healthy."
+
+                    // Clean up the docker-compose services.
+                    sh "docker-compose down"
+                }
+            }
+        }
+
+        // Stage 5: Build the Docker image and push it conditionally.
         stage('Build and (Conditionally) Push Docker Image') {
             steps {
                 script {
@@ -87,7 +119,7 @@ pipeline {
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
                     def effectiveBranch = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
 
-                    // Push if triggered manually or if branch is develop/master (or their origin forms).
+                    // Determine if the image should be pushed.
                     def shouldPush = !webhookBranch || (effectiveBranch in ['develop', 'master', 'origin/develop', 'origin/master'])
                     if (shouldPush) {
                         echo "Pushing Docker image for branch: ${effectiveBranch}"
@@ -106,7 +138,7 @@ pipeline {
             }
         }
 
-        // Stage 5: Update the GitHub commit status with the final result.
+        // Stage 6: Update the GitHub commit status with the final result.
         stage('Set GitHub Commit Status') {
             steps {
                 script {
