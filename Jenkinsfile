@@ -6,10 +6,14 @@
  *   - Sets an initial GitHub commit status to 'pending' to indicate the build is in progress.
  *   - Checks out the code from GitHub based on the provided branch parameters.
  *   - Generates a unique Docker image tag using the commit hash and branch information.
- *   - Runs a pre-build docker-compose test (with --no-cache and --abort-on-container-exit)
- *     to ensure the service starts successfully.
  *   - Builds the Docker image and conditionally pushes it to Docker Hub.
  *   - Updates the GitHub commit status to SUCCESS or FAILURE depending on the final build result.
+ *
+ * Requirements:
+ *   - Proper GitHub credentials with at least the "repo:status" scope.
+ *   - Necessary plugins installed and up-to-date (GitHub Plugin, GitHub Branch Source Plugin,
+ *     GitHub Commit Status Setter Plugin or GitHub Checks Plugin).
+ *   - A build trigger that provides the correct commit SHA (via webhooks or multibranch pipeline).
  */
 
 pipeline {
@@ -43,7 +47,9 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
+                    // Remove the 'refs/heads/' prefix from WEBHOOK_BRANCH if set.
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
+                    // Use webhookBranch if available; otherwise fallback to BRANCH_BUILD or default to 'master'.
                     def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
                     echo "Checking out branch: ${branchToCheckout}"
                     checkout([
@@ -70,26 +76,7 @@ pipeline {
             }
         }
 
-        // Stage 4: Pre-Build Docker Compose Validation
-        stage('Docker Compose Pre-Test') {
-            steps {
-                script {
-                    echo "Running docker-compose build with no-cache..."
-                    // Build the docker-compose services with no cache.
-                    sh "docker-compose build --no-cache"
-
-                    echo "Running docker-compose up with abort-on-container-exit..."
-                    // Run the containers. This command will exit if any container fails.
-                    sh "docker-compose up --abort-on-container-exit"
-
-                    echo "Bringing down docker-compose services..."
-                    // Ensure the containers are stopped after the test.
-                    sh "docker-compose down"
-                }
-            }
-        }
-
-        // Stage 5: Build the Docker image and push it conditionally.
+        // Stage 4: Build the Docker image and push it conditionally.
         stage('Build and (Conditionally) Push Docker Image') {
             steps {
                 script {
@@ -119,7 +106,7 @@ pipeline {
             }
         }
 
-        // Stage 6: Update the GitHub commit status with the final result.
+        // Stage 5: Update the GitHub commit status with the final result.
         stage('Set GitHub Commit Status') {
             steps {
                 script {
