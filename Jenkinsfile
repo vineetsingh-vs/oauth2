@@ -43,7 +43,16 @@ pipeline {
             }
         }
 
-        // Stage 2: Checkout the code from GitHub.
+        // Stage 2: clean up
+        stage('Clean Workspace') {
+                    steps {
+                        cleanWs()
+                        sh 'docker system prune -af --volumes'  // Remove unused Docker artifacts
+                    }
+        }
+
+
+        // Stage 3: Checkout the code from GitHub.
         stage('Checkout') {
             steps {
                 script {
@@ -62,7 +71,7 @@ pipeline {
             }
         }
 
-        // Stage 3: Set a unique Docker image tag based on commit hash and branch.
+        // Stage 4: Set a unique Docker image tag based on commit hash and branch.
         stage('Set Unique Tag') {
             steps {
                 script {
@@ -76,12 +85,12 @@ pipeline {
             }
         }
 
-        // Stage 4: Build the Docker image and push it conditionally.
+        // Stage 5: Build the Docker image and push it conditionally.
         stage('Build and (Conditionally) Push Docker Image') {
             steps {
                 script {
                     echo "Building Docker image with tag ${env.IMAGE_TAG}"
-                    sh "docker build -t ${env.IMAGE_TAG} ."
+                    sh "docker build --no-cache -t ${env.IMAGE_TAG} ."
                     echo "Docker build completed."
 
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\/heads\//, '') : ''
@@ -106,7 +115,7 @@ pipeline {
             }
         }
 
-        // Stage 5: Update the GitHub commit status with the final result.
+        // Stage 6: Update the GitHub commit status with the final result.
         stage('Set GitHub Commit Status') {
             steps {
                 script {
