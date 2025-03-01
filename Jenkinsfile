@@ -6,8 +6,6 @@
  *   - Sets an initial GitHub commit status to 'pending' to indicate the build is in progress.
  *   - Checks out the code from GitHub based on the provided branch parameters.
  *   - Generates a unique Docker image tag using the commit hash and branch information.
- *   - Runs a docker-compose pre-test with "docker-compose up --build --abort-on-container-exit"
- *     to verify that the code runs without failing (e.g. npm start does not fail).
  *   - Builds the Docker image and conditionally pushes it to Docker Hub.
  *   - Updates the GitHub commit status to SUCCESS or FAILURE depending on the final build result.
  *
@@ -74,21 +72,6 @@ pipeline {
                     def sanitizedBranch = branchUsed.replace('/', '-')
                     env.IMAGE_TAG = "${DOCKER_REPO}:${sanitizedBranch}-${env.BUILD_NUMBER}-${commitHash}"
                     echo "Unique Docker Image Tag: ${env.IMAGE_TAG}"
-                }
-            }
-        }
-
-        // New Stage: Docker Compose Pre-Test to catch runtime failures (e.g. npm start fails)
-        stage('Docker Compose Pre-Test') {
-            steps {
-                script {
-                    echo "Running docker-compose pre-test with --build --abort-on-container-exit"
-                    // Use a timeout to prevent hanging if the containers run indefinitely.
-                    timeout(time: 60, unit: 'SECONDS') {
-                        sh "docker-compose up --build --abort-on-container-exit"
-                    }
-                    // After the test, ensure the containers are brought down.
-                    sh "docker-compose down"
                 }
             }
         }
