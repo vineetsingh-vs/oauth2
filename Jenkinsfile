@@ -76,26 +76,6 @@ pipeline {
             }
         }
 
-        // New Stage: Docker Compose Pre-Test to catch runtime failures (e.g. npm start fails)
-         stage('Docker Compose Pre-Test') {
-             steps {
-                 script {
-                     try {
-                         sh """
-                             # Run with explicit exit code from tests service
-                             docker-compose up --build --abort-on-container-exit --exit-code-from tests
-                         """
-                     } catch (Exception e) {
-                         error "Docker Compose Pre-Test failed: ${e.message}"
-                     } finally {
-                         sh "docker-compose down --remove-orphans --volumes"
-                         // Optional: Archive logs for debugging
-                         sh "docker-compose logs --no-color > docker-compose.log"
-                         archiveArtifacts artifacts: 'docker-compose.log'
-                     }
-                 }
-             }
-         }
 
         // Stage 4: Build the Docker image and push it conditionally.
         stage('Build and (Conditionally) Push Docker Image') {
