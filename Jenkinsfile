@@ -7,7 +7,8 @@
  *   - Checks out the code from GitHub based on the provided branch parameters.
  *   - Generates a unique Docker image tag using the commit hash and branch information.
  *   - Builds the Docker image and conditionally pushes it to Docker Hub.
- *   - Runs an integration test using docker-compose to verify the npm process.
+ *   - Rebuilds the docker-compose environment without cache and runs an integration test
+ *     to verify the npm process.
  *   - Updates the GitHub commit status to SUCCESS or FAILURE depending on the final build result.
  *
  * Requirements:
@@ -107,12 +108,12 @@ pipeline {
             }
         }
 
-        // New Stage: Run docker-compose to verify the npm process.
+        // Stage 5: Rebuild docker-compose environment with --no-cache and run integration test.
         stage('Integration Test with Docker Compose') {
             steps {
                 script {
-                    // Run docker-compose with flags to abort on container exit and use oauth service exit code.
-                    // This ensures the pipeline fails if npm start fails.
+                    echo "Building docker-compose environment with --no-cache..."
+                    sh "docker-compose -f ${env.DOCKER_COMPOSE_FILE} build --no-cache"
                     echo "Running docker-compose integration test..."
                     def exitCode = sh(script: "docker-compose -f ${env.DOCKER_COMPOSE_FILE} up --abort-on-container-exit --exit-code-from oauth", returnStatus: true)
                     if (exitCode != 0) {
@@ -122,14 +123,13 @@ pipeline {
             }
             post {
                 always {
-                    // Bring down the docker-compose environment regardless of success or failure.
                     echo "Tearing down docker-compose environment..."
                     sh "docker-compose -f ${env.DOCKER_COMPOSE_FILE} down"
                 }
             }
         }
 
-        // Stage 5: Update the GitHub commit status with the final result.
+        // Stage 6: Update the GitHub commit status with the final result.
         stage('Set GitHub Commit Status') {
             steps {
                 script {
