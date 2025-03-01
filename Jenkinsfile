@@ -76,6 +76,19 @@ pipeline {
             }
         }
 
+        // New Stage: Docker Compose Pre-Test to catch runtime failures (e.g. npm start fails)
+         stage('Docker Compose Pre-Test') {
+                    steps {
+                        script {
+                            echo "Running docker-compose pre-test with --build --abort-on-container-exit"
+                            // Use a timeout to prevent hanging if the containers run indefinitely.
+                            sh "docker-compose up --build --abort-on-container-exit"
+                            // After the test, ensure the containers are brought down.
+                            sh "docker-compose down"
+                        }
+                    }
+         }
+
         // Stage 4: Build the Docker image and push it conditionally.
         stage('Build and (Conditionally) Push Docker Image') {
             steps {
