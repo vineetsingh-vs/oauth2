@@ -80,19 +80,18 @@ pipeline {
          stage('Docker Compose Pre-Test') {
              steps {
                  script {
-                     echo "Running docker-compose pre-test with --build and strict exit checks"
                      try {
-                         // Run with timeout (e.g., 5 minutes) to prevent indefinite hangs
-                         timeout(time: 5, unit: 'MINUTES') {
-                             sh """
-                                 docker-compose up --build --abort-on-container-exit
-                             """
-                         }
+                         sh """
+                             # Run with explicit exit code from tests service
+                             docker-compose up --build --abort-on-container-exit --exit-code-from tests
+                         """
                      } catch (Exception e) {
                          error "Docker Compose Pre-Test failed: ${e.message}"
                      } finally {
-                         // Always clean up, even if the test or timeout fails
                          sh "docker-compose down --remove-orphans --volumes"
+                         // Optional: Archive logs for debugging
+                         sh "docker-compose logs --no-color > docker-compose.log"
+                         archiveArtifacts artifacts: 'docker-compose.log'
                      }
                  }
              }
