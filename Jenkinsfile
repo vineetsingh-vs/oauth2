@@ -80,30 +80,23 @@ pipeline {
          stage('Docker Compose Pre-Test') {
              steps {
                  script {
-                     echo "Starting docker-compose services in detached mode with --build"
-                     sh "docker-compose up -d --build"
-
-                     echo "Waiting for services to initialize..."
-                     sleep 180  // Adjust the sleep time as needed
-
-                     echo "Checking health endpoint for service..."
+                     echo "Running docker-compose pre-test with --build and strict exit checks"
                      try {
-                         // Replace with your service's actual health endpoint.
-                         sh "curl -f http://localhost:3001/health"
+                         // Run with timeout (e.g., 5 minutes) to prevent indefinite hangs
+                         timeout(time: 5, unit: 'MINUTES') {
+                             sh """
+                                 docker-compose up --build --abort-on-container-exit
+                             """
+                         }
                      } catch (Exception e) {
-                         // If the health check fails, capture logs, bring the containers down, and then fail the stage.
-                         def logs = sh(script: "docker-compose logs", returnStdout: true).trim()
-                         sh "docker-compose down"
-                         error "Pre-test failed: Health endpoint did not become healthy.\nContainer logs:\n${logs}"
+                         error "Docker Compose Pre-Test failed: ${e.message}"
+                     } finally {
+                         // Always clean up, even if the test or timeout fails
+                         sh "docker-compose down --remove-orphans --volumes"
                      }
-
-                     echo "Pre-test passed: Service is healthy. Exiting pre-test stage and shutting down containers."
-                     sh "docker-compose down"
                  }
              }
          }
-
-
 
         // Stage 4: Build the Docker image and push it conditionally.
         stage('Build and (Conditionally) Push Docker Image') {
