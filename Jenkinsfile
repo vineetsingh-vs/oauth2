@@ -76,7 +76,6 @@ pipeline {
             }
         }
 
-
         // Stage 4: Build the Docker image and push it conditionally.
         stage('Build and (Conditionally) Push Docker Image') {
             steps {
