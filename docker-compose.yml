@@ -8,7 +8,12 @@ services:
     env_file: .env
     depends_on:
       - db
-    restart: unless-stopped
+    # Removed restart policy to let the container exit on failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   db:
     image: postgres:14
