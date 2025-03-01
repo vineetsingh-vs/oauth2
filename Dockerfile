@@ -1,26 +1,25 @@
-FROM node:16
+FROM node:16 as builder
 
-# Set working directory inside the container
 WORKDIR /usr/src/app
 
-# Copy package files
+# Copy package files and install dependencies
 COPY package*.json ./
-
-#testing
-# Configure npm settings:
-#  - Set registry (optional, you may try the replicate endpoint)
-#  - Increase timeout (e.g., to 60 seconds)
-#  - Clean npm cache to avoid stale data
-RUN npm config set registry https://registry.npmjs.org/ && \
-    npm set timeout=60000 && \
-    npm cache clean --force && \
-    npm install --only=production
+RUN npm install --only=production
 
 # Copy the rest of your application code
 COPY . .
 
-# Expose the app port
+# Stage: Test the application startup
+# Note: This runs `npm start` for a short period and then kills it.
+# Adjust the timeout as necessary.
+RUN npm install -g timeout && timeout 10s npm start || (echo "npm start failed" && exit 1)
+
+# Final image
+FROM node:16
+
+WORKDIR /usr/src/app
+COPY --from=builder /usr/src/app ./
+
 EXPOSE 3001
 
-# Start the application
 CMD ["npm", "start"]
