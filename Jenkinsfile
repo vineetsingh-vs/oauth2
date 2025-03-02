@@ -158,7 +158,7 @@ pipeline {
                         sshagent(['deployment-credentials']) {
                             sh """
                                 ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
-                                    cd /path/to/deployment/ &&
+                                    cd /home/ubuntu/deployment/ &&
                                     export TARGET_ENV=${targetEnv} &&
                                     docker-compose pull &&
                                     docker-compose up -d  --force-recreate
