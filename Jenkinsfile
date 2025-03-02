@@ -163,15 +163,16 @@ pipeline {
                         sshagent(['deployment-credentials']) {
                             sh """
                               ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
-                                cd /home/ubuntu/deployment/ &&
-                                rm -rf * .[^.]* || true &&
-                                git clone --branch ${env.BRANCH_NAME} https://github.com/${env.GITHUB_REPO}.git . &&
-                                rm -f .env &&
-                                ./variable-env.sh &&
-                                export TARGET_ENV=${targetEnv} &&
-                                export IMAGE_TAG=${env.IMAGE_TAG} &&
-                                docker compose pull &&
-                                docker compose up -d --force-recreate
+                                  cd /home/ubuntu/deployment/ &&
+                                  rm -rf * .[^.]* || true &&
+                                  git clone --branch ${env.BRANCH_NAME} https://github.com/${env.GITHUB_REPO}.git . &&
+                                  rm -f .env &&
+                                  chmod +x variable-env.sh &&
+                                  ./variable-env.sh &&
+                                  export TARGET_ENV=${targetEnv} &&
+                                  export IMAGE_TAG=${env.IMAGE_TAG} &&
+                                  docker compose pull &&
+                                  docker compose up -d --force-recreate
                               '
                             """
                         }
