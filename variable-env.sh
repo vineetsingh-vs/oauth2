@@ -20,7 +20,7 @@ cat <<EOF > .env
 NODE_ENV=${NODE_ENV}
 PORT=3001
 SESSION_SECRET=${SESSION_SECRET}
-DATABASE_URL=postgres://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}?sslmode=require
+DATABASE_URL=postgres://${DB_USERNAME}:${DB_PASSWORD}@maddie-dev.cf8csamqy6sl.us-east-2.rds.amazonaws.com:5432/${DB_NAME}?sslmode=require
 
 JWT_PRIVATE_KEY_PATH=./keys/ec_private_key.pem
 JWT_PUBLIC_KEY_PATH=./keys/ec_public_key.pem
