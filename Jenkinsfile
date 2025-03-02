@@ -161,7 +161,7 @@ pipeline {
                                     cd /path/to/deployment/folder &&
                                     export TARGET_ENV=${targetEnv} &&
                                     docker-compose pull &&
-                                    docker-compose up -d
+                                    docker-compose up -d  --force-recreate
                                 '
                             """
                         }
