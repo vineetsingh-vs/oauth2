@@ -18,7 +18,13 @@ if (config.use_env_variable) {
   sequelize = new Sequelize(config.database, config.username, config.password, {
     host: "maddie-dev.cf8csamqy6sl.us-east-2.rds.amazonaws.com",
     dialect: config.dialect,
-    logging: false,  
+    logging: false,
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false // You might want to adjust this based on your security needs.
+      }
+    }
   });
 }
 
