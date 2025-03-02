@@ -2,13 +2,10 @@ version: '3.8'
 
 services:
   oauth:
-    build: .
+    image: "${IMAGE_TAG}"  # Use the pre-built image from your registry.
     ports:
       - "3001:3001"
     env_file: .env
-    depends_on:
-      - db
-    # Removed restart policy to let the container exit on failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 30s
