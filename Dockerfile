@@ -1,26 +1,26 @@
 FROM node:16
 
-# Set working directory inside the container
 WORKDIR /usr/src/app
 
-# Copy package files
 COPY package*.json ./
-
-#testing
-# Configure npm settings:
-#  - Set registry (optional, you may try the replicate endpoint)
-#  - Increase timeout (e.g., to 60 seconds)
-#  - Clean npm cache to avoid stale data
 RUN npm config set registry https://registry.npmjs.org/ && \
     npm set timeout=60000 && \
     npm cache clean --force && \
     npm install --only=production
 
-# Copy the rest of your application code
+# Copy all project files
 COPY . .
 
-# Expose the app port
+# Automatically make all .sh files executable
+RUN find . -type f -name "*.sh" -exec chmod +x {} \;
+
+# Install AWS CLI (example for Debian/Ubuntu-based images)
+RUN apt-get update && apt-get install -y unzip curl && \
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm -rf aws awscliv2.zip
+
 EXPOSE 3001
 
-# Start the application
-CMD ["npm", "start"]
+ENTRYPOINT ["./build.sh"]
