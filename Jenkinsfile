@@ -161,8 +161,8 @@ pipeline {
                                 ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
                                     cd /home/ubuntu/deployment/ &&
                                     export TARGET_ENV=${targetEnv} &&
-                                    docker-compose pull &&
-                                    docker-compose up -d --force-recreate
+                                    docker compose pull &&
+                                    docker compose up -d --force-recreate
                                 '
                             """
                         }
