@@ -156,6 +156,7 @@ pipeline {
 
                         echo "Deploying to instance ${instanceId} at ${publicIp}"
                         sshagent(['deployment-credentials']) {
+
                             sh """
                                 ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
                                     cd /home/ubuntu/deployment/ &&
@@ -196,6 +197,7 @@ pipeline {
         }
     }
 }
+
 
 
 
