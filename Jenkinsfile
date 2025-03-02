@@ -68,6 +68,7 @@ pipeline {
                         branches: [[name: branchToCheckout]],
                         userRemoteConfigs: [[url: "https://github.com/${env.GITHUB_REPO}.git"]]
                     ])
+                     env.BRANCH_NAME = branchToCheckout
                     echo "Checked out branch: ${branchToCheckout}"
                 }
             }
@@ -115,62 +116,61 @@ pipeline {
 
         // Stage 5: Deploy to UAT/Prod via ASG.
         stage('Deploy') {
-//             when {
-//                 anyOf {
-//                     branch 'develop'
-//                     branch 'master'
-//                     branch 'origin/develop'
-//                     branch 'origin/master'
-//                 }
-//             }
-//             steps {
-//                 script {
-//                     // Determine target environment based on branch: master -> prod; develop -> uat.
-//                     def targetEnv = (env.BRANCH_NAME == 'master') ? 'prod' : 'uat'
-//                     if (params.TARGET_ENV?.trim()) {
-//                         targetEnv = params.TARGET_ENV.trim()
-//                     }
-//                     echo "Target environment: ${targetEnv}"
-//
-//                     // Determine the ASG name based on environment.
-//                     def asgName = (targetEnv == 'prod') ? env.PROD_ASG_NAME : env.UAT_ASG_NAME
-//                     echo "Using ASG: ${asgName}"
-//
-//                     // Retrieve instance IDs from the ASG using the AWS CLI.
-//                     def instanceIdsOutput = sh(script: """
-//                         aws autoscaling describe-auto-scaling-groups \
-//                           --auto-scaling-group-names ${asgName} \
-//                           --query "AutoScalingGroups[0].Instances[].InstanceId" \
-//                           --output text
-//                     """, returnStdout: true).trim()
-//
-//                     def instanceIds = instanceIdsOutput.tokenize()
-//                     echo "Found instances: ${instanceIds}"
-//
-//                     // Loop through each instance, get its public IP, and deploy.
-//                     for (instanceId in instanceIds) {
-//                         def publicIp = sh(script: """
-//                             aws ec2 describe-instances \
-//                               --instance-ids ${instanceId} \
-//                               --query "Reservations[0].Instances[0].PublicIpAddress" \
-//                               --output text
-//                         """, returnStdout: true).trim()
-//
-//                         echo "Deploying to instance ${instanceId} at ${publicIp}"
-//                         sshagent(['deployment-credentials']) {
-//                             sh """
-//                                 ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
-//                                     cd /path/to/deployment/folder &&
-//                                     export TARGET_ENV=${targetEnv} &&
-//                                     docker-compose pull &&
-//                                     docker-compose up -d  --force-recreate
-//                                 '
-//                             """
-//                         }
-//                     }
-//                 }
-//             }
-steps {  echo "Deploy branch: or ${env.BRANCH_NAME}"}
+            when {
+                anyOf {
+                    branch 'develop'
+                    branch 'master'
+                    branch 'origin/develop'
+                    branch 'origin/master'
+                }
+            }
+            steps {
+                script {
+                    // Determine target environment based on branch: master -> prod; develop -> uat.
+                    def targetEnv = (env.BRANCH_NAME == 'master') ? 'prod' : 'uat'
+                    if (params.TARGET_ENV?.trim()) {
+                        targetEnv = params.TARGET_ENV.trim()
+                    }
+                    echo "Target environment: ${targetEnv}"
+
+                    // Determine the ASG name based on environment.
+                    def asgName = (targetEnv == 'prod') ? env.PROD_ASG_NAME : env.UAT_ASG_NAME
+                    echo "Using ASG: ${asgName}"
+
+                    // Retrieve instance IDs from the ASG using the AWS CLI.
+                    def instanceIdsOutput = sh(script: """
+                        aws autoscaling describe-auto-scaling-groups \
+                          --auto-scaling-group-names ${asgName} \
+                          --query "AutoScalingGroups[0].Instances[].InstanceId" \
+                          --output text
+                    """, returnStdout: true).trim()
+
+                    def instanceIds = instanceIdsOutput.tokenize()
+                    echo "Found instances: ${instanceIds}"
+
+                    // Loop through each instance, get its public IP, and deploy.
+                    for (instanceId in instanceIds) {
+                        def publicIp = sh(script: """
+                            aws ec2 describe-instances \
+                              --instance-ids ${instanceId} \
+                              --query "Reservations[0].Instances[0].PublicIpAddress" \
+                              --output text
+                        """, returnStdout: true).trim()
+
+                        echo "Deploying to instance ${instanceId} at ${publicIp}"
+                        sshagent(['deployment-credentials']) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
+                                    cd /path/to/deployment/folder &&
+                                    export TARGET_ENV=${targetEnv} &&
+                                    docker-compose pull &&
+                                    docker-compose up -d  --force-recreate
+                                '
+                            """
+                        }
+                    }
+                }
+            }
         }
 
         // Stage 6: Set final GitHub commit status.
