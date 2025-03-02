@@ -4,9 +4,10 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 RUN npm config set registry https://registry.npmjs.org/ && \
-    npm set timeout=60000 && \
+    npm config set fetch-timeout 60000 && \
     npm cache clean --force && \
     npm install --only=production
+
 
 # Copy all project files
 COPY . .
