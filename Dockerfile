@@ -26,3 +26,5 @@ RUN apt-get update && apt-get install -y unzip curl && \
 EXPOSE 3001
 
 ENTRYPOINT ["./build.sh"]
+
+
