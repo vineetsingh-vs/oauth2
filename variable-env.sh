@@ -19,7 +19,7 @@ echo "DEBUG: DB_HOST value from SSM: ${DB_HOST}"
 cat <<EOF > .env
 NODE_ENV=${NODE_ENV}
 PORT=3001
-SESSION_SECRET=${SESSION_SECRET}
+SESSION_SECRET='hello-world'
 DATABASE_URL=postgres://${DB_USERNAME}:${DB_PASSWORD}@maddie-dev.cf8csamqy6sl.us-east-2.rds.amazonaws.com:5432/${DB_NAME}?sslmode=require
 
 JWT_PRIVATE_KEY_PATH=./keys/ec_private_key.pem

@@ -13,10 +13,8 @@ let sequelize;
 if (config.use_env_variable) {
   sequelize = new Sequelize(process.env[config.use_env_variable], config);
 } else {
-  console.log("Menv", env);
-  console.log("host", config.host);
   sequelize = new Sequelize(config.database, config.username, config.password, {
-    host: "maddie-dev.cf8csamqy6sl.us-east-2.rds.amazonaws.com",
+    host: config.host,
     dialect: config.dialect,
     logging: false,
     dialectOptions: {
