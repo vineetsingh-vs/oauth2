@@ -57,10 +57,9 @@ pipeline {
                     // Remove 'refs/heads/' prefix from WEBHOOK_BRANCH if set.
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\\/heads\\//, '') : ''
                     def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
+                    params.BRANCH_BUILD = branchToCheckout
                     echo "Checking out branch: ${branchToCheckout}"
 
-                    echo "Checking out WEBHOOK_BRANCH: ${env.WEBHOOK_BRANCH}"
-                    echo "Checking out BRANCH_BUILD: ${params.BRANCH_BUILD}"
                     checkout([
                         $class: 'GitSCM',
                         branches: [[name: branchToCheckout]],
