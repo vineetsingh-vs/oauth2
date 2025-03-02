@@ -28,3 +28,4 @@ EXPOSE 3001
 
 ENTRYPOINT ["./build.sh"]
 
+
