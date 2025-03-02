@@ -166,8 +166,11 @@ pipeline {
                                 ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
                                     cd /home/ubuntu/deployment/ &&
                                     export TARGET_ENV=${targetEnv} &&
+                                    export IMAGE_TAG=${env.IMAGE_TAG} &&
                                     docker compose pull &&
                                     docker compose up -d --force-recreate
+                                '
+
                                 '
                             """
                         }
