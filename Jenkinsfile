@@ -22,6 +22,11 @@
 pipeline {
     agent any
 
+    options {
+            // Discard builds older than 14 days or keep only the last 10 builds
+            buildDiscarder(logRotator(daysToKeepStr: '14', numToKeepStr: '10'))
+        }
+
     environment {
         DOCKER_REPO = "maddiemoldrem/oauth_server"
         DOCKER_COMPOSE_FILE = "docker-compose.yml"
