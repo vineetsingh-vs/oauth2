@@ -13,6 +13,7 @@ DB_PASSWORD=$(aws ssm get-parameter --name "/${TARGET_ENV}/DB_PASSWORD" --with-d
 DB_HOST=$(aws ssm get-parameter --name "/${TARGET_ENV}/DB_HOST" --with-decryption --query "Parameter.Value" --output text)
 DB_NAME=$(aws ssm get-parameter --name "/${TARGET_ENV}/DB_NAME" --with-decryption --query "Parameter.Value" --output text)
 DIALECT=$(aws ssm get-parameter --name "/${TARGET_ENV}/DIALECT" --with-decryption --query "Parameter.Value" --output text)
+echo "DEBUG: DB_HOST value from SSM: ${DB_HOST}"
 
 # Write the .env file using a here-document
 cat <<EOF > .env
