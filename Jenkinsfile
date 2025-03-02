@@ -22,10 +22,10 @@
 pipeline {
     agent any
 
-    parameters {
-        // Optional override for target environment (uat or prod). If left empty, auto-selection will be used.
-        string(name: 'TARGET_ENV', defaultValue: '', description: 'Override target environment (uat or prod)')
-    }
+    options {
+            // Discard builds older than 14 days or keep only the last 10 builds
+            buildDiscarder(logRotator(daysToKeepStr: '14', numToKeepStr: '10'))
+        }
 
     environment {
         DOCKER_REPO = "maddiemoldrem/oauth_server"
@@ -63,11 +63,14 @@ pipeline {
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\\/heads\\//, '') : ''
                     def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
                     echo "Checking out branch: ${branchToCheckout}"
+
+
                     checkout([
                         $class: 'GitSCM',
                         branches: [[name: branchToCheckout]],
                         userRemoteConfigs: [[url: "https://github.com/${env.GITHUB_REPO}.git"]]
                     ])
+                     env.BRANCH_NAME = branchToCheckout
                     echo "Checked out branch: ${branchToCheckout}"
                 }
             }
@@ -119,6 +122,8 @@ pipeline {
                 anyOf {
                     branch 'develop'
                     branch 'master'
+                    branch 'origin/develop'
+                    branch 'origin/master'
                 }
             }
             steps {
@@ -157,12 +162,18 @@ pipeline {
                         echo "Deploying to instance ${instanceId} at ${publicIp}"
                         sshagent(['deployment-credentials']) {
                             sh """
-                                ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
-                                    cd /path/to/deployment/folder &&
-                                    export TARGET_ENV=${targetEnv} &&
-                                    docker-compose pull &&
-                                    docker-compose up -d  --force-recreate
-                                '
+                              ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
+                                  cd /home/ubuntu/deployment/ &&
+                                  rm -rf * .[^.]* || true &&
+                                  git clone --branch ${env.BRANCH_NAME} https://github.com/${env.GITHUB_REPO}.git . &&
+                                  rm -f .env &&
+                                  chmod +x variable-env.sh &&
+                                  ./variable-env.sh &&
+                                  export TARGET_ENV=${targetEnv} &&
+                                  export IMAGE_TAG=${env.IMAGE_TAG} &&
+                                  docker compose pull &&
+                                  docker compose up -d --force-recreate
+                              '
                             """
                         }
                     }
@@ -196,3 +207,8 @@ pipeline {
         }
     }
 }
+
+
+
+
+

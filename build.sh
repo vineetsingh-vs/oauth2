@@ -17,7 +17,7 @@ if [ ! -f /usr/src/app/keys/ec_private_key.pem ] || [ ! -f /usr/src/app/keys/ec_
 fi
 
 echo "Running database migrations..."
-npx dotenv -e .env -- npx sequelize-cli db:migrate --env prod
+npx dotenv -e .env -- npx sequelize-cli db:migrate --env uat
 
 echo "Starting the application..."
 npm start
