@@ -1,8 +1,5 @@
 #!/bin/sh
 
-echo "Removing any existing .env file..."
-rm -f .env
-
 echo "Generating .env file from Parameter Store..."
 ./variable-env.sh
 

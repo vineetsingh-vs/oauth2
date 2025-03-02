@@ -164,10 +164,18 @@ pipeline {
                             sh """
                               ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
                                   cd /home/ubuntu/deployment/ &&
+                                  # Remove all files (including hidden ones) from previous deployments
                                   rm -rf * .[^.]* || true &&
+                                  # Clone the repository for the desired branch
                                   git clone --branch ${env.BRANCH_NAME} https://github.com/${env.GITHUB_REPO}.git . &&
+                                  # Remove the .env file that might have come from the repository
+                                  rm -f .env &&
+                                  # Regenerate the .env file from Parameter Store
+                                  ./variable-env.sh &&
+                                  # Export any environment variables if needed for docker-compose
                                   export TARGET_ENV=${targetEnv} &&
                                   export IMAGE_TAG=${env.IMAGE_TAG} &&
+                                  # Now run docker compose
                                   docker compose pull &&
                                   docker compose up -d --force-recreate
                               '
