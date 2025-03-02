@@ -22,11 +22,6 @@
 pipeline {
     agent any
 
-    parameters {
-        // Optional override for target environment (uat or prod). If left empty, auto-selection will be used.
-        string(name: 'TARGET_ENV', defaultValue: '', description: 'Override target environment (uat or prod)')
-    }
-
     environment {
         DOCKER_REPO = "maddiemoldrem/oauth_server"
         DOCKER_COMPOSE_FILE = "docker-compose.yml"
