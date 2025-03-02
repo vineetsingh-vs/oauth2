@@ -170,7 +170,7 @@ pipeline {
 //                     }
 //                 }
 //             }
-steps {  echo "Deploy branch: ${branch} or ${env.BRANCH_NAME}"}
+steps {  echo "Deploy branch: or ${env.BRANCH_NAME}"}
         }
 
         // Stage 6: Set final GitHub commit status.
