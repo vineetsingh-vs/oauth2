@@ -38,7 +38,7 @@ pipeline {
         DOCKER_COMPOSE_FILE = "docker-compose.yml"
         GITHUB_REPO         = "vineetsingh-vs/oauth2"
         UAT_ASG_NAME        = credentials('uat-oauth-asg')
-        PROD_ASG_NAME       = credentials('uat-oauth-asg')
+        PROD_ASG_NAME       = credentials('prod-oauth-asg')
         AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
     }
@@ -177,7 +177,7 @@ pipeline {
 
                     def instanceIdsOutput = sh(script: """
                       aws autoscaling describe-auto-scaling-groups \
-                        --auto-scaling-group-names "${asgName}" \
+                        --auto-scaling-group-names "uat-oauth-asg" \
                         --query 'AutoScalingGroups[0].Instances[].InstanceId' \
                         --output text \
                         --region us-east-2
