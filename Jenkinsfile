@@ -38,7 +38,7 @@ pipeline {
         DOCKER_COMPOSE_FILE = "docker-compose.yml"
         GITHUB_REPO         = "vineetsingh-vs/oauth2"
         UAT_ASG_NAME        = credentials('uat-oauth-asg')
-        PROD_ASG_NAME       = credentials('prod-oauth-asg')
+        PROD_ASG_NAME       = credentials('uat-oauth-asg')
         AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
     }
