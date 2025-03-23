@@ -130,14 +130,13 @@ pipeline {
         // === Stage: Determine the Dynamic Target Environment for Deployment and Terraform ===
         stage('Determine Target Environment') {
             steps {
-                    script {
-                                // Inline logic to set the target environment
-                                def targetEnv = params.TARGET_ENV?.trim() ? params.TARGET_ENV.trim() : (env.BRANCH_NAME == 'master' ? 'prod' : 'uat')
-                                env.TARGET_ENV_DYNAMIC = targetEnv
-                                echo "Dynamic Target Environment: ${env.TARGET_ENV_DYNAMIC}"
-                            }
-                        }
-                    }
+                script {
+                     // Inline logic to set the target environment
+                     def targetEnv = params.TARGET_ENV?.trim() ? params.TARGET_ENV.trim() : (env.BRANCH_NAME == 'master' ? 'prod' : 'uat')
+                     env.TARGET_ENV_DYNAMIC = targetEnv
+                     echo "Dynamic Target Environment: ${env.TARGET_ENV_DYNAMIC}"
+                }
+            }
         }
 
         // === Terraform Stages (using Docker) ===
