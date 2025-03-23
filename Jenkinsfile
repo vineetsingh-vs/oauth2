@@ -37,8 +37,8 @@ pipeline {
         DOCKER_REPO         = credentials('docker-repo')
         DOCKER_COMPOSE_FILE = "docker-compose.yml"
         GITHUB_REPO         = "vineetsingh-vs/oauth2"
-        UAT_ASG_NAME        = credentials('uat-asg-name')
-        PROD_ASG_NAME       = credentials('prod-asg-name')
+        UAT_ASG_NAME        = credentials('uat-oauth-asg')
+        PROD_ASG_NAME       = credentials('prod-oauth-asg')
         AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
     }
@@ -209,7 +209,7 @@ pipeline {
                             sh """
                               ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
                                   cd /home/ubuntu/deployment/ &&
-                                  rm -rf * .[^.]* || true &&
+                                  sudo rm -rf * .[^.]* || true &&
                                   git clone --branch ${env.BRANCH_NAME} https://github.com/${env.GITHUB_REPO}.git . &&
                                   rm -f .env &&
                                   chmod +x variable-env.sh &&
