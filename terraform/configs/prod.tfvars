@@ -1,0 +1,10 @@
+aws_region           = "us-east-2"
+env_name             = "prod"
+alb_security_groups  = ["sg-024a0e456a17bb0cd"]
+alb_subnets          = ["subnet-0f5dab9e0083cca10", "subnet-01e488b95f4233492"]
+vpc_id               = "vpc-0d11d5ddd822f1da0"
+asg_subnets          = ["subnet-0f5dab9e0083cca10", "subnet-01e488b95f4233492"]
+asg_min_size         = 1
+asg_max_size         = 2
+asg_desired_capacity = 1
+launch_template_id   = "lt-0e22ba7817729c180"
