@@ -210,10 +210,10 @@ pipeline {
                               ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
                                   cd /home/ubuntu/deployment/ &&
                                   sudo rm -rf * .[^.]* || true &&
-                                  git clone --branch ${env.BRANCH_NAME} https://github.com/${env.GITHUB_REPO}.git . &&
-                                  rm -f .env &&
-                                  chmod +x variable-env.sh &&
-                                  ./variable-env.sh &&
+                                  sudo git clone --branch ${env.BRANCH_NAME} https://github.com/${env.GITHUB_REPO}.git . &&
+                                  sudo rm -f .env &&
+                                  sudo chmod +x variable-env.sh &&
+                                  sudo ./variable-env.sh &&
                                   export TARGET_ENV=${targetEnv} &&
                                   export IMAGE_TAG=${env.IMAGE_TAG} &&
                                   docker compose pull &&
