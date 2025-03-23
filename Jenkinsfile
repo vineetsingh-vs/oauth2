@@ -47,127 +47,116 @@ pipeline {
         stage('Set GitHub Pending Status') {
             steps {
                 script {
-                    def pendingStatusParams = [
+                    step([$class: 'GitHubCommitStatusSetter',
                         statusResultSource: [
                             $class: 'ConditionalStatusResultSource',
                             results: [
                                 [$class: 'AnyBuildResult', message: 'Build in progress', state: 'PENDING']
                             ]
                         ]
-                    ]
-                    step([$class: 'GitHubCommitStatusSetter'] + pendingStatusParams)
+                    ])
                 }
             }
         }
+
         stage('Checkout') {
             steps {
                 script {
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\\/heads\\//, '') : ''
-                    def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
+                    def branchToCheckout = webhookBranch ?: (params.BRANCH_BUILD?.trim() ?: 'master')
                     echo "Checking out branch: ${branchToCheckout}"
+
                     checkout([
                         $class: 'GitSCM',
                         branches: [[name: branchToCheckout]],
                         userRemoteConfigs: [[url: "https://github.com/${env.GITHUB_REPO}.git"]]
                     ])
                     env.BRANCH_NAME = branchToCheckout
-                    echo "Checked out branch: ${branchToCheckout}"
                 }
             }
         }
+
         stage('Set Unique Tag') {
             steps {
                 script {
                     def commitHash = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\\/heads\\//, '') : ''
-                    def branchUsed = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
+                    def branchUsed = env.BRANCH_NAME ?: 'master'
                     def sanitizedBranch = branchUsed.replace('/', '-')
                     env.IMAGE_TAG = "${DOCKER_REPO}:${sanitizedBranch}-${env.BUILD_NUMBER}-${commitHash}"
-                    echo "Unique Docker Image Tag: ${env.IMAGE_TAG}"
+                    echo "Docker Image Tag: ${env.IMAGE_TAG}"
                 }
             }
         }
-        stage('Build and (Conditionally) Push Docker Image') {
+
+        stage('Build and Push Docker Image') {
             steps {
                 script {
-                    echo "Building Docker image with tag ${env.IMAGE_TAG}"
                     sh "docker build --no-cache -t ${env.IMAGE_TAG} ."
                     echo "Docker build completed."
-                    def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\\/heads\\//, '') : ''
-                    def effectiveBranch = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
-                    def shouldPush = !webhookBranch || (effectiveBranch in ['develop', 'master', 'origin/develop', 'origin/master'])
+
+                    def effectiveBranch = env.BRANCH_NAME
+                    def shouldPush = effectiveBranch in ['develop', 'master', 'origin/develop', 'origin/master']
+
                     if (shouldPush) {
-                        echo "Pushing Docker image for branch: ${effectiveBranch}"
                         withCredentials([usernamePassword(credentialsId: 'maddie-docker', passwordVariable: 'DOCKER_HUB_PASS', usernameVariable: 'DOCKER_HUB_USER')]) {
-                            echo "Logging into Docker Hub..."
                             sh "echo ${DOCKER_HUB_PASS} | docker login -u ${DOCKER_HUB_USER} --password-stdin"
-                            echo "Docker Hub login succeeded."
                         }
                         sh "docker push ${env.IMAGE_TAG}"
                     } else {
-                        echo "Skipping Docker push for branch: ${effectiveBranch}"
+                        echo "Skipping push for branch: ${effectiveBranch}"
                     }
                 }
             }
         }
+
         stage('Determine Target Environment') {
             steps {
                 script {
-                    def targetEnv = params.TARGET_ENV?.trim() ? params.TARGET_ENV.trim() : (env.BRANCH_NAME == 'master' ? 'prod' : 'uat')
-                    env.TARGET_ENV_DYNAMIC = targetEnv
-                    echo "Dynamic Target Environment: ${env.TARGET_ENV_DYNAMIC}"
+                    env.TARGET_ENV_DYNAMIC = params.TARGET_ENV?.trim() ?: (env.BRANCH_NAME == 'master' ? 'prod' : 'uat')
+                    echo "Target Environment: ${env.TARGET_ENV_DYNAMIC}"
                 }
             }
         }
-        stage('Terraform Init') {
+
+        stage('Terraform Init/Plan/Apply') {
             steps {
                 script {
-                    def tfVarFile = (env.TARGET_ENV_DYNAMIC == 'prod') ? "configs/prod.tfvars" : "configs/uat.tfvars"
-                    echo "Using Terraform var file: ${tfVarFile}"
-                    sh '''
+                    def tfVarFile = env.TARGET_ENV_DYNAMIC == 'prod' ? "configs/prod.tfvars" : "configs/uat.tfvars"
+
+                    sh """
                       docker run --rm \
                         -v "$WORKSPACE/terraform":/workspace \
                         -w /workspace \
                         -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
                         -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
                         hashicorp/terraform:latest init
-                    '''
-                }
-            }
-        }
-        stage('Terraform Plan') {
-            steps {
-                script {
-                    def tfVarFile = (env.TARGET_ENV_DYNAMIC == 'prod') ? "configs/prod.tfvars" : "configs/uat.tfvars"
+                    """
+
                     sh """
                       docker run --rm \
                         -v "$WORKSPACE/terraform":/workspace \
                         -w /workspace \
                         -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
                         -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
-                        hashicorp/terraform:latest plan -var-file='${tfVarFile}'
+                        hashicorp/terraform:latest plan -var-file="${tfVarFile}"
                     """
-                }
-            }
-        }
-        stage('Terraform Apply') {
-            steps {
-                script {
-                    def tfVarFile = (env.TARGET_ENV_DYNAMIC == 'prod') ? "configs/prod.tfvars" : "configs/uat.tfvars"
+
                     if (env.TARGET_ENV_DYNAMIC == 'prod') {
-                        input message: 'Approve Terraform Apply for Production?'
+                        input message: "Approve Terraform Apply for Production?"
                     }
+
                     sh """
                       docker run --rm \
                         -v "$WORKSPACE/terraform":/workspace \
                         -w /workspace \
                         -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
                         -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
-                        hashicorp/terraform:latest apply -auto-approve -var-file='${tfVarFile}'
+                        hashicorp/terraform:latest apply -auto-approve -var-file="${tfVarFile}"
                     """
                 }
             }
         }
+
         stage('Deploy') {
             when {
                 anyOf {
@@ -180,35 +169,42 @@ pipeline {
             steps {
                 script {
                     def targetEnv = env.TARGET_ENV_DYNAMIC
-                    echo "Deploying to target environment: ${targetEnv}"
                     def asgName = (targetEnv == 'prod') ? env.PROD_ASG_NAME : env.UAT_ASG_NAME
                     echo "Using ASG: ${asgName}"
 
-                    // Delay to allow the ASG to register instances
-                    echo "Waiting for instances to become available..."
-                    sh "sleep 30"
+                    // Wait for EC2 instance to attach to ASG
+                    sleep(time: 45, unit: 'SECONDS')
 
                     def instanceIdsOutput = sh(script: """
-                      aws autoscaling describe-auto-scaling-groups \\
-                        --auto-scaling-group-names "uat-oauth-asg" \\
-                        --query 'AutoScalingGroups[0].Instances[].InstanceId' \\
-                        --output text \\
+                      aws autoscaling describe-auto-scaling-groups \
+                        --auto-scaling-group-names "${asgName}" \
+                        --query 'AutoScalingGroups[0].Instances[].InstanceId' \
+                        --output text \
                         --region us-east-2
                     """, returnStdout: true).trim()
 
                     def instanceIds = instanceIdsOutput.tokenize()
                     echo "Found instances: ${instanceIds}"
 
+                    if (instanceIds.size() == 0 || instanceIds[0] == "None") {
+                        error("No valid instances found in ASG: ${asgName}")
+                    }
+
                     for (instanceId in instanceIds) {
                         def publicIp = sh(script: """
-                            aws ec2 describe-instances \\
-                              --instance-ids "i-08542c205cf1eb594" \\
-                              --query 'Reservations[0].Instances[0].PublicIpAddress' \\
-                              --output text \\
-                              --region us-east-2
+                          aws ec2 describe-instances \
+                            --instance-ids "${instanceId}" \
+                            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+                            --output text \
+                            --region us-east-2
                         """, returnStdout: true).trim()
 
+                        if (!publicIp || publicIp == "None") {
+                            error("Public IP not found for instance: ${instanceId}")
+                        }
+
                         echo "Deploying to instance ${instanceId} at ${publicIp}"
+
                         sshagent(['deployment-credentials']) {
                             sh """
                               ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
@@ -229,20 +225,20 @@ pipeline {
                 }
             }
         }
+
         stage('Set GitHub Commit Status') {
             steps {
                 script {
                     def status = currentBuild.currentResult == 'SUCCESS' ? 'SUCCESS' : 'FAILURE'
-                    def message = currentBuild.currentResult == 'SUCCESS' ? 'Build completed successfully' : 'Build failed'
-                    def finalStatusParams = [
+                    def message = status == 'SUCCESS' ? 'Build completed successfully' : 'Build failed'
+                    step([$class: 'GitHubCommitStatusSetter',
                         statusResultSource: [
                             $class: 'ConditionalStatusResultSource',
                             results: [
                                 [$class: 'AnyBuildResult', message: message, state: status]
                             ]
                         ]
-                    ]
-                    step([$class: 'GitHubCommitStatusSetter'] + finalStatusParams)
+                    ])
                 }
             }
         }
@@ -254,3 +250,4 @@ pipeline {
         }
     }
 }
+
