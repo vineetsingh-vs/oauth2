@@ -202,7 +202,7 @@ pipeline {
                     for (instanceId in instanceIds) {
                         def publicIp = sh(script: """
                             aws ec2 describe-instances \\
-                              --instance-ids "${instanceId}" \\
+                              --instance-ids "i-08542c205cf1eb594" \\
                               --query 'Reservations[0].Instances[0].PublicIpAddress' \\
                               --output text \\
                               --region us-east-2
