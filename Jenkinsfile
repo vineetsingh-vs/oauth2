@@ -213,23 +213,24 @@ pipeline {
 
                     // Retrieve instance IDs from the ASG using the AWS CLI.
                     def instanceIdsOutput = sh(script: """
-                        aws autoscaling describe-auto-scaling-groups \
-                          --auto-scaling-group-names "${asgName}" \
-                          --query "AutoScalingGroups[0].Instances[].InstanceId" \
-                          --output text
+                      aws autoscaling describe-auto-scaling-groups \\
+                        --auto-scaling-group-names "${asgName}" \\
+                        --query 'AutoScalingGroups[0].Instances[].InstanceId' \\
+                        --output text \\
+                        --region us-east-2
                     """, returnStdout: true).trim()
 
-                    echo "Found instances: ${instanceIdsOutput}"
                     def instanceIds = instanceIdsOutput.tokenize()
                     echo "Found instances: ${instanceIds}"
 
                     // Loop through each instance, get its public IP, and deploy the updated Docker image.
                     for (instanceId in instanceIds) {
                         def publicIp = sh(script: """
-                            aws ec2 describe-instances \
-                              --instance-ids "${instanceId}" \
-                              --query "Reservations[0].Instances[0].PublicIpAddress" \
-                              --output text
+                            aws ec2 describe-instances \\
+                              --instance-ids "${instanceId}" \\
+                              --query 'Reservations[0].Instances[0].PublicIpAddress' \\
+                              --output text \\
+                              --region us-east-2
                         """, returnStdout: true).trim()
 
                         echo "Deploying to instance ${instanceId} at ${publicIp}"
