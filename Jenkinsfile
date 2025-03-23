@@ -214,7 +214,7 @@ pipeline {
                     // Retrieve instance IDs from the ASG using the AWS CLI.
                     def instanceIdsOutput = sh(script: """
                         aws autoscaling describe-auto-scaling-groups \
-                          --auto-scaling-group-names ${asgName} \
+                          --auto-scaling-group-names "${asgName}" \
                           --query "AutoScalingGroups[0].Instances[].InstanceId" \
                           --output text
                     """, returnStdout: true).trim()
@@ -226,7 +226,7 @@ pipeline {
                     for (instanceId in instanceIds) {
                         def publicIp = sh(script: """
                             aws ec2 describe-instances \
-                              --instance-ids ${instanceId} \
+                              --instance-ids "${instanceId}" \
                               --query "Reservations[0].Instances[0].PublicIpAddress" \
                               --output text
                         """, returnStdout: true).trim()
