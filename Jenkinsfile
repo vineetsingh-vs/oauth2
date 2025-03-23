@@ -26,13 +26,10 @@
  * - Pre-existing AWS resources (Auto Scaling Groups, ALB, etc.) that match the Terraform configuration.
  */
 
-
-
 pipeline {
     agent any
 
     options {
-        // Discard builds older than 14 days or keep only the last 10 builds
         buildDiscarder(logRotator(daysToKeepStr: '14', numToKeepStr: '10'))
     }
 
@@ -47,7 +44,6 @@ pipeline {
     }
 
     stages {
-        // === Stage 1: Set GitHub commit status to PENDING ===
         stage('Set GitHub Pending Status') {
             steps {
                 script {
@@ -63,17 +59,12 @@ pipeline {
                 }
             }
         }
-
-        // === Stage 2: Pulling the Code (Checkout) ===
         stage('Checkout') {
             steps {
                 script {
-                    // Remove 'refs/heads/' prefix if necessary
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\\/heads\\//, '') : ''
                     def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
                     echo "Checking out branch: ${branchToCheckout}"
-
-                    // Pull code from GitHub
                     checkout([
                         $class: 'GitSCM',
                         branches: [[name: branchToCheckout]],
@@ -84,8 +75,6 @@ pipeline {
                 }
             }
         }
-
-        // === Stage 3: Set a Unique Docker Image Tag ===
         stage('Set Unique Tag') {
             steps {
                 script {
@@ -98,16 +87,12 @@ pipeline {
                 }
             }
         }
-
-        // === Stage 4: Build and (Conditionally) Push Docker Image ===
         stage('Build and (Conditionally) Push Docker Image') {
             steps {
                 script {
                     echo "Building Docker image with tag ${env.IMAGE_TAG}"
-                    // Build the Docker image
                     sh "docker build --no-cache -t ${env.IMAGE_TAG} ."
                     echo "Docker build completed."
-
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\\/heads\\//, '') : ''
                     def effectiveBranch = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
                     def shouldPush = !webhookBranch || (effectiveBranch in ['develop', 'master', 'origin/develop', 'origin/master'])
@@ -118,7 +103,6 @@ pipeline {
                             sh "echo ${DOCKER_HUB_PASS} | docker login -u ${DOCKER_HUB_USER} --password-stdin"
                             echo "Docker Hub login succeeded."
                         }
-                        // Push the image to Docker Hub
                         sh "docker push ${env.IMAGE_TAG}"
                     } else {
                         echo "Skipping Docker push for branch: ${effectiveBranch}"
@@ -126,20 +110,15 @@ pipeline {
                 }
             }
         }
-
-        // === Stage: Determine the Dynamic Target Environment for Deployment and Terraform ===
         stage('Determine Target Environment') {
             steps {
                 script {
-                     // Inline logic to set the target environment
-                     def targetEnv = params.TARGET_ENV?.trim() ? params.TARGET_ENV.trim() : (env.BRANCH_NAME == 'master' ? 'prod' : 'uat')
-                     env.TARGET_ENV_DYNAMIC = targetEnv
-                     echo "Dynamic Target Environment: ${env.TARGET_ENV_DYNAMIC}"
+                    def targetEnv = params.TARGET_ENV?.trim() ? params.TARGET_ENV.trim() : (env.BRANCH_NAME == 'master' ? 'prod' : 'uat')
+                    env.TARGET_ENV_DYNAMIC = targetEnv
+                    echo "Dynamic Target Environment: ${env.TARGET_ENV_DYNAMIC}"
                 }
             }
         }
-
-        // === Terraform Stages (using Docker) ===
         stage('Terraform Init') {
             steps {
                 script {
@@ -156,7 +135,6 @@ pipeline {
                 }
             }
         }
-
         stage('Terraform Plan') {
             steps {
                 script {
@@ -167,12 +145,11 @@ pipeline {
                         -w /workspace \
                         -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
                         -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
-                        hashicorp/terraform:latest plan -var-file="${tfVarFile}"
+                        hashicorp/terraform:latest plan -var-file='${tfVarFile}'
                     """
                 }
             }
         }
-
         stage('Terraform Apply') {
             steps {
                 script {
@@ -186,13 +163,11 @@ pipeline {
                         -w /workspace \
                         -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
                         -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
-                        hashicorp/terraform:latest apply -auto-approve -var-file="${tfVarFile}"
+                        hashicorp/terraform:latest apply -auto-approve -var-file='${tfVarFile}'
                     """
                 }
             }
         }
-
-        // === Stage 5: Deploy Application to EC2 (Pulls Image and Recreates Containers) ===
         stage('Deploy') {
             when {
                 anyOf {
@@ -206,12 +181,13 @@ pipeline {
                 script {
                     def targetEnv = env.TARGET_ENV_DYNAMIC
                     echo "Deploying to target environment: ${targetEnv}"
-
-                    // Determine the ASG name based on environment.
                     def asgName = (targetEnv == 'prod') ? env.PROD_ASG_NAME : env.UAT_ASG_NAME
                     echo "Using ASG: ${asgName}"
 
-                    // Retrieve instance IDs from the ASG using the AWS CLI.
+                    // Delay to allow the ASG to register instances
+                    echo "Waiting for instances to become available..."
+                    sh "sleep 30"
+
                     def instanceIdsOutput = sh(script: """
                       aws autoscaling describe-auto-scaling-groups \\
                         --auto-scaling-group-names "${asgName}" \\
@@ -223,7 +199,6 @@ pipeline {
                     def instanceIds = instanceIdsOutput.tokenize()
                     echo "Found instances: ${instanceIds}"
 
-                    // Loop through each instance, get its public IP, and deploy the updated Docker image.
                     for (instanceId in instanceIds) {
                         def publicIp = sh(script: """
                             aws ec2 describe-instances \\
@@ -254,8 +229,6 @@ pipeline {
                 }
             }
         }
-
-        // === Stage 6: Set final GitHub commit status ===
         stage('Set GitHub Commit Status') {
             steps {
                 script {
@@ -281,9 +254,3 @@ pipeline {
         }
     }
 }
-
-
-
-
-
-
