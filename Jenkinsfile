@@ -149,8 +149,7 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 script {
-                    def tfVarFile = (env.TARGET_ENV_DYNAMIC == 'prod') ? "configs/prod.tfvars
-                    " : "configs/uat.tfvars"
+                    def tfVarFile = (env.TARGET_ENV_DYNAMIC == 'prod') ? "configs/prod.tfvars" : "configs/uat.tfvars"
                     echo "Using Terraform var file: ${tfVarFile}"
                     sh '''
                       docker run --rm \
