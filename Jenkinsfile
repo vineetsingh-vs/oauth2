@@ -190,7 +190,7 @@ pipeline {
 
                     def instanceIdsOutput = sh(script: """
                       aws autoscaling describe-auto-scaling-groups \\
-                        --auto-scaling-group-names "${asgName}" \\
+                        --auto-scaling-group-names "uat-oauth-asg" \\
                         --query 'AutoScalingGroups[0].Instances[].InstanceId' \\
                         --output text \\
                         --region us-east-2
