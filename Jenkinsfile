@@ -219,6 +219,7 @@ pipeline {
                           --output text
                     """, returnStdout: true).trim()
 
+                    echo "Found instances: ${instanceIdsOutput}"
                     def instanceIds = instanceIdsOutput.tokenize()
                     echo "Found instances: ${instanceIds}"
 
