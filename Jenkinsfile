@@ -71,7 +71,7 @@ pipeline {
                         branches: [[name: branchToCheckout]],
                         userRemoteConfigs: [[url: "https://github.com/${env.GITHUB_REPO}.git"]]
                     ])
-                    env.BRANCH_NAME = branchToCheckout
+                    env.BRANCH_NAME = 'develop'
                 }
             }
         }
@@ -172,8 +172,6 @@ pipeline {
                     def asgName = (targetEnv == 'prod') ? env.PROD_ASG_NAME : env.UAT_ASG_NAME
                     echo "Using ASG: ${asgName}"
 
-                    // Wait for EC2 instance to attach to ASG
-                    sleep(time: 45, unit: 'SECONDS')
 
                     def instanceIdsOutput = sh(script: """
                       aws autoscaling describe-auto-scaling-groups \
