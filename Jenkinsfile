@@ -1,168 +1,222 @@
 /**
  * Author: Madeline Moldrem
  *
- * This Jenkins pipeline automates the build and deployment process for the OAuth2 server.
- * It performs the following actions:
- *   - Sets an initial GitHub commit status to 'pending' to indicate the build is in progress.
- *   - Checks out the code from GitHub based on the provided branch parameters.
- *   - Generates a unique Docker image tag using the commit hash and branch information.
- *   - Builds the Docker image and conditionally pushes it to Docker Hub.
- *   - Deploys the new Docker image to the target Auto Scaling Group (ASG) for UAT (develop branch) or Prod (master branch)
- *     by SSHing into each instance and running docker-compose commands.
- *   - Updates the GitHub commit status to SUCCESS or FAILURE depending on the final build result.
+ * This Jenkins pipeline automates the complete build, infrastructure, and deployment process
+ * for the OAuth2 server. The pipeline performs the following actions:
+ *
+ * 1. Sets an initial GitHub commit status to 'pending' to indicate the build is in progress.
+ * 2. Checks out the code from GitHub based on provided branch parameters.
+ * 3. Generates a unique Docker image tag using the commit hash and branch information.
+ * 4. Builds the Docker image and conditionally pushes it to Docker Hub.
+ * 5. Dynamically determines the target environment (UAT or Prod) based on the branch name
+ *    or an explicit parameter.
+ * 6. Executes Terraform commands (init, plan, apply) inside a Docker container using the
+ *    appropriate variable file for UAT or production to manage AWS infrastructure.
+ * 7. Deploys the new Docker image to the target Auto Scaling Group (ASG) by SSHing into each
+ *    instance and executing docker-compose commands.
+ * 8. Updates the GitHub commit status to SUCCESS or FAILURE depending on the final build result.
  *
  * Requirements:
- *   - Proper GitHub credentials with at least the "repo:status" scope.
- *   - Necessary plugins installed (GitHub Plugin, GitHub Commit Status Setter Plugin, etc.).
- *   - AWS CLI configured in Jenkins with permissions to query the ASG and EC2 instances.
- *   - SSH credentials (e.g., 'deployment-credentials') set up in Jenkins for accessing EC2 instances.
- *   - Auto Scaling Groups and ALB set up in your AWS environment.
+ * - GitHub credentials with at least the "repo:status" scope.
+ * - Jenkins plugins: GitHub Plugin, GitHub Commit Status Setter Plugin, etc.
+ * - AWS CLI configured on Jenkins or available within the pipeline environment.
+ * - AWS credentials stored securely in Jenkins Credentials (referenced as 'aws-access-key-id' and
+ *   'aws-secret-access-key').
+ * - SSH credentials (e.g., 'deployment-credentials') set up in Jenkins for accessing EC2 instances.
+ * - Pre-existing AWS resources (Auto Scaling Groups, ALB, etc.) that match the Terraform configuration.
  */
 
 pipeline {
     agent any
 
-    parameters {
-        // Optional override for target environment (uat or prod). If left empty, auto-selection will be used.
-        string(name: 'TARGET_ENV', defaultValue: '', description: 'Override target environment (uat or prod)')
+    options {
+        buildDiscarder(logRotator(daysToKeepStr: '14', numToKeepStr: '10'))
     }
 
     environment {
-        DOCKER_REPO = "maddiemoldrem/oauth_server"
+        DOCKER_REPO         = credentials('docker-repo')
         DOCKER_COMPOSE_FILE = "docker-compose.yml"
-        GITHUB_REPO = "vineetsingh-vs/oauth2"
-        // These should be set either as global Jenkins environment variables or defined here.
-        // They represent the ASG names for each environment.
-        UAT_ASG_NAME = "maddie-uat-asg"
-        PROD_ASG_NAME = "maddie-prod-asg"
+        GITHUB_REPO         = "vineetsingh-vs/oauth2"
+        UAT_ASG_NAME        = "uat-oauth-asg"
+        PROD_ASG_NAME       = "prod-oauth-asg"
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
     }
 
     stages {
-        // Stage 1: Set GitHub commit status to PENDING.
         stage('Set GitHub Pending Status') {
             steps {
                 script {
-                    def pendingStatusParams = [
+                    step([$class: 'GitHubCommitStatusSetter',
                         statusResultSource: [
                             $class: 'ConditionalStatusResultSource',
                             results: [
                                 [$class: 'AnyBuildResult', message: 'Build in progress', state: 'PENDING']
                             ]
                         ]
-                    ]
-                    step([$class: 'GitHubCommitStatusSetter'] + pendingStatusParams)
+                    ])
                 }
             }
         }
 
-        // Stage 2: Checkout the code from GitHub.
         stage('Checkout') {
             steps {
                 script {
-                    // Remove 'refs/heads/' prefix from WEBHOOK_BRANCH if set.
                     def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\\/heads\\//, '') : ''
-                    def branchToCheckout = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
+                    def branchToCheckout = webhookBranch ?: (params.BRANCH_BUILD?.trim() ?: 'master')
                     echo "Checking out branch: ${branchToCheckout}"
+
                     checkout([
                         $class: 'GitSCM',
                         branches: [[name: branchToCheckout]],
                         userRemoteConfigs: [[url: "https://github.com/${env.GITHUB_REPO}.git"]]
                     ])
-                    echo "Checked out branch: ${branchToCheckout}"
+                    env.BRANCH_NAME = 'develop'
                 }
             }
         }
 
-        // Stage 3: Set a unique Docker image tag.
         stage('Set Unique Tag') {
             steps {
                 script {
                     def commitHash = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\\/heads\\//, '') : ''
-                    def branchUsed = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
+                    def branchUsed = env.BRANCH_NAME ?: 'master'
                     def sanitizedBranch = branchUsed.replace('/', '-')
                     env.IMAGE_TAG = "${DOCKER_REPO}:${sanitizedBranch}-${env.BUILD_NUMBER}-${commitHash}"
-                    echo "Unique Docker Image Tag: ${env.IMAGE_TAG}"
+                    echo "Docker Image Tag: ${env.IMAGE_TAG}"
                 }
             }
         }
 
-        // Stage 4: Build the Docker image and push it conditionally.
-        stage('Build and (Conditionally) Push Docker Image') {
+        stage('Build and Push Docker Image') {
             steps {
                 script {
-                    echo "Building Docker image with tag ${env.IMAGE_TAG}"
                     sh "docker build --no-cache -t ${env.IMAGE_TAG} ."
                     echo "Docker build completed."
 
-                    def webhookBranch = env.WEBHOOK_BRANCH?.trim() ? env.WEBHOOK_BRANCH.replaceFirst(/^refs\\/heads\\//, '') : ''
-                    def effectiveBranch = webhookBranch ? webhookBranch : (params.BRANCH_BUILD?.trim() ? params.BRANCH_BUILD : 'master')
-                    def shouldPush = !webhookBranch || (effectiveBranch in ['develop', 'master', 'origin/develop', 'origin/master'])
+                    def effectiveBranch = env.BRANCH_NAME
+                    def shouldPush = effectiveBranch in ['develop', 'master', 'origin/develop', 'origin/master']
+
                     if (shouldPush) {
-                        echo "Pushing Docker image for branch: ${effectiveBranch}"
                         withCredentials([usernamePassword(credentialsId: 'maddie-docker', passwordVariable: 'DOCKER_HUB_PASS', usernameVariable: 'DOCKER_HUB_USER')]) {
-                            echo "Logging into Docker Hub..."
                             sh "echo ${DOCKER_HUB_PASS} | docker login -u ${DOCKER_HUB_USER} --password-stdin"
-                            echo "Docker Hub login succeeded."
                         }
                         sh "docker push ${env.IMAGE_TAG}"
                     } else {
-                        echo "Skipping Docker push for branch: ${effectiveBranch}"
+                        echo "Skipping push for branch: ${effectiveBranch}"
                     }
                 }
             }
         }
 
-        // Stage 5: Deploy to UAT/Prod via ASG.
+        stage('Determine Target Environment') {
+            steps {
+                script {
+                    env.TARGET_ENV_DYNAMIC = params.TARGET_ENV?.trim() ?: (env.BRANCH_NAME == 'master' ? 'prod' : 'uat')
+                    echo "Target Environment: ${env.TARGET_ENV_DYNAMIC}"
+                }
+            }
+        }
+
+        stage('Terraform Init/Plan/Apply') {
+            steps {
+                script {
+                    def tfVarFile = env.TARGET_ENV_DYNAMIC == 'prod' ? "configs/prod.tfvars" : "configs/uat.tfvars"
+
+                    sh """
+                      docker run --rm \
+                        -v "$WORKSPACE/terraform":/workspace \
+                        -w /workspace \
+                        -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+                        -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+                        hashicorp/terraform:latest init
+                    """
+
+                    sh """
+                      docker run --rm \
+                        -v "$WORKSPACE/terraform":/workspace \
+                        -w /workspace \
+                        -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+                        -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+                        hashicorp/terraform:latest plan -var-file="${tfVarFile}"
+                    """
+
+                    if (env.TARGET_ENV_DYNAMIC == 'prod') {
+                        input message: "Approve Terraform Apply for Production?"
+                    }
+
+                    sh """
+                      docker run --rm \
+                        -v "$WORKSPACE/terraform":/workspace \
+                        -w /workspace \
+                        -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+                        -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+                        hashicorp/terraform:latest apply -auto-approve -var-file="${tfVarFile}"
+                    """
+                }
+            }
+        }
+
         stage('Deploy') {
             when {
                 anyOf {
                     branch 'develop'
                     branch 'master'
+                    branch 'origin/develop'
+                    branch 'origin/master'
                 }
             }
             steps {
                 script {
-                    // Determine target environment based on branch: master -> prod; develop -> uat.
-                    def targetEnv = (env.BRANCH_NAME == 'master') ? 'prod' : 'uat'
-                    if (params.TARGET_ENV?.trim()) {
-                        targetEnv = params.TARGET_ENV.trim()
-                    }
-                    echo "Target environment: ${targetEnv}"
-
-                    // Determine the ASG name based on environment.
+                    def targetEnv = env.TARGET_ENV_DYNAMIC
                     def asgName = (targetEnv == 'prod') ? env.PROD_ASG_NAME : env.UAT_ASG_NAME
                     echo "Using ASG: ${asgName}"
 
-                    // Retrieve instance IDs from the ASG using the AWS CLI.
+
                     def instanceIdsOutput = sh(script: """
-                        aws autoscaling describe-auto-scaling-groups \
-                          --auto-scaling-group-names ${asgName} \
-                          --query "AutoScalingGroups[0].Instances[].InstanceId" \
-                          --output text
+                      aws autoscaling describe-auto-scaling-groups \
+                        --auto-scaling-group-names "uat-oauth-asg" \
+                        --query 'AutoScalingGroups[0].Instances[].InstanceId' \
+                        --output text \
+                        --region us-east-2
                     """, returnStdout: true).trim()
 
                     def instanceIds = instanceIdsOutput.tokenize()
                     echo "Found instances: ${instanceIds}"
 
-                    // Loop through each instance, get its public IP, and deploy.
+                    if (instanceIds.size() == 0 || instanceIds[0] == "None") {
+                        error("No valid instances found in ASG: ${asgName}")
+                    }
+
                     for (instanceId in instanceIds) {
                         def publicIp = sh(script: """
-                            aws ec2 describe-instances \
-                              --instance-ids ${instanceId} \
-                              --query "Reservations[0].Instances[0].PublicIpAddress" \
-                              --output text
+                          aws ec2 describe-instances \
+                            --instance-ids "${instanceId}" \
+                            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+                            --output text \
+                            --region us-east-2
                         """, returnStdout: true).trim()
 
+                        if (!publicIp || publicIp == "None") {
+                            error("Public IP not found for instance: ${instanceId}")
+                        }
+
                         echo "Deploying to instance ${instanceId} at ${publicIp}"
+
                         sshagent(['deployment-credentials']) {
                             sh """
-                                ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
-                                    cd /path/to/deployment/folder &&
-                                    export TARGET_ENV=${targetEnv} &&
-                                    docker-compose pull &&
-                                    docker-compose up -d  --force-recreate
-                                '
+                              ssh -o StrictHostKeyChecking=no ubuntu@${publicIp} '
+                                  cd /home/ubuntu/deployment/ &&
+                                  sudo rm -rf * .[^.]* || true &&
+                                  sudo git clone --branch ${env.BRANCH_NAME} https://github.com/${env.GITHUB_REPO}.git . &&
+                                  sudo rm -f .env &&
+                                  sudo chmod +x variable-env.sh &&
+                                  sudo ./variable-env.sh &&
+                                  export TARGET_ENV=${targetEnv} &&
+                                  export IMAGE_TAG=${env.IMAGE_TAG} &&
+                                  docker compose pull &&
+                                  docker compose up -d --force-recreate
+                              '
                             """
                         }
                     }
@@ -170,21 +224,19 @@ pipeline {
             }
         }
 
-        // Stage 6: Set final GitHub commit status.
         stage('Set GitHub Commit Status') {
             steps {
                 script {
                     def status = currentBuild.currentResult == 'SUCCESS' ? 'SUCCESS' : 'FAILURE'
-                    def message = currentBuild.currentResult == 'SUCCESS' ? 'Build completed successfully' : 'Build failed'
-                    def finalStatusParams = [
+                    def message = status == 'SUCCESS' ? 'Build completed successfully' : 'Build failed'
+                    step([$class: 'GitHubCommitStatusSetter',
                         statusResultSource: [
                             $class: 'ConditionalStatusResultSource',
                             results: [
                                 [$class: 'AnyBuildResult', message: message, state: status]
                             ]
                         ]
-                    ]
-                    step([$class: 'GitHubCommitStatusSetter'] + finalStatusParams)
+                    ])
                 }
             }
         }
@@ -196,3 +248,4 @@ pipeline {
         }
     }
 }
+

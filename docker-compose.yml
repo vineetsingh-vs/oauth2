@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   oauth:
-    image: "${IMAGE_TAG}"  # Use the pre-built image from your registry.
+    image: "${IMAGE_TAG}"  # Ensure this environment variable is properly set
     ports:
       - "3001:3001"
     env_file: .env

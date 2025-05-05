@@ -13,13 +13,14 @@ DB_PASSWORD=$(aws ssm get-parameter --name "/${TARGET_ENV}/DB_PASSWORD" --with-d
 DB_HOST=$(aws ssm get-parameter --name "/${TARGET_ENV}/DB_HOST" --with-decryption --query "Parameter.Value" --output text)
 DB_NAME=$(aws ssm get-parameter --name "/${TARGET_ENV}/DB_NAME" --with-decryption --query "Parameter.Value" --output text)
 DIALECT=$(aws ssm get-parameter --name "/${TARGET_ENV}/DIALECT" --with-decryption --query "Parameter.Value" --output text)
+echo "DEBUG: DB_HOST value from SSM: ${DB_HOST}"
 
 # Write the .env file using a here-document
 cat <<EOF > .env
 NODE_ENV=${NODE_ENV}
 PORT=3001
-SESSION_SECRET=${SESSION_SECRET}
-DATABASE_URL=postgres://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}?sslmode=require
+SESSION_SECRET='hello-world'
+DATABASE_URL=postgres://${DB_USERNAME}:${DB_PASSWORD}@maddie-dev.cf8csamqy6sl.us-east-2.rds.amazonaws.com:5432/${DB_NAME}?sslmode=require
 
 JWT_PRIVATE_KEY_PATH=./keys/ec_private_key.pem
 JWT_PUBLIC_KEY_PATH=./keys/ec_public_key.pem
